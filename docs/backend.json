@@ -1,0 +1,68 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Expanded user profile for the gambling hub, matching the Supabase SQL schema.",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "full_name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "balance": { "type": "number", "default": 1000 },
+        "role": { "type": "string", "enum": ["user", "agent", "moderator", "admin"], "default": "user" },
+        "photo_url": { "type": "string" },
+        "ip_address": { "type": "string" },
+        "location": { "type": "string" },
+        "agent_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "suspended", "banned"], "default": "active" },
+        "total_wagered": { "type": "number", "default": 0 },
+        "total_won": { "type": "number", "default": 0 },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "username", "role"]
+    },
+    "PaymentHistory": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["deposit", "withdrawal"] },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "method": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "GameHistory": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "game": { "type": "string" },
+        "bet": { "type": "number" },
+        "win": { "type": "number" },
+        "multiplier": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["password", "anonymous"]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/userProfiles/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": { "$ref": "#/backend/entities/UserProfile" },
+          "description": "User profile with administrative extensions."
+        }
+      }
+    ]
+  }
+}

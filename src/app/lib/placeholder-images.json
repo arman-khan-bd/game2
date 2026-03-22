@@ -1,0 +1,29 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "roulette-hero",
+      "description": "A close-up of a classic casino roulette wheel with a ball in motion.",
+      "imageUrl": "https://picsum.photos/seed/roulette/800/600",
+      "imageHint": "casino roulette"
+    },
+    {
+      "id": "slots-hero",
+      "description": "A vibrant neon slot machine with glowing numbers and symbols.",
+      "imageUrl": "https://picsum.photos/seed/slots/800/600",
+      "imageHint": "slot machine"
+    },
+    {
+      "id": "crash-hero",
+      "description": "A stylized rocket ship taking off into a digital space background.",
+      "imageUrl": "https://picsum.photos/seed/rocket/800/600",
+      "imageHint": "rocket launch"
+    },
+    {
+      "id": "raffle-hero",
+      "description": "A colorful wheel of fortune spinning with vibrant segments.",
+      "imageUrl": "https://picsum.photos/seed/wheel/800/600",
+      "imageHint": "fortune wheel"
+    }
+  ]
+}

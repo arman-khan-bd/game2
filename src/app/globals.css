@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 171 100% 4%;
+    --foreground: 0 0% 100%;
+    --card: 171 90% 8%;
+    --card-foreground: 0 0% 100%;
+    --popover: 171 100% 5%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 45 100% 50%;
+    --primary-foreground: 171 100% 5%;
+    --secondary: 171 40% 15%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 171 20% 15%;
+    --muted-foreground: 171 10% 60%;
+    --accent: 171 100% 40%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 171 30% 20%;
+    --input: 171 30% 20%;
+    --ring: 45 100% 50%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+}
+
+@layer utilities {
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 2px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-white/20;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Specific button styles from image */
+.btn-deposit {
+  background: linear-gradient(180deg, #facc15 0%, #eab308 100%);
+  color: #000;
+}
+
+.nav-active {
+  color: #facc15;
+}
