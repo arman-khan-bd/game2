@@ -9,6 +9,7 @@ import { User, Phone, MapPin, Ticket, Plus, Minus, UserCheck, Users } from "luci
 
 interface TicketFormProps {
   onSubmit: (data: { name: string; phone: string; address: string; quantity: number }) => void;
+  ticketPrice?: number;
 }
 
 const PRE_USERS = [
@@ -18,7 +19,7 @@ const PRE_USERS = [
   { name: "Abir Khan", phone: "01655443322", address: "Rajshahi City" },
 ];
 
-export const TicketForm: React.FC<TicketFormProps> = ({ onSubmit }) => {
+export const TicketForm: React.FC<TicketFormProps> = ({ onSubmit, ticketPrice = 1 }) => {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -144,7 +145,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onSubmit }) => {
              </div>
              
              <Button className="flex-1 h-16 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-black italic text-xl uppercase tracking-tighter shadow-xl shadow-emerald-500/10">
-                PURCHASE TICKETS (৳{quantity * 500})
+                PURCHASE TICKETS (৳{(quantity * ticketPrice).toLocaleString()})
              </Button>
           </div>
         </form>

@@ -284,11 +284,7 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
     }
   }, [systemStatus, allTicketNumbers.length]);
 
-  useEffect(() => {
-    if (storedTickets) {
-      setActiveTickets(storedTickets as TicketData[]);
-    }
-  }, [storedTickets]);
+
 
   // WebSocket / Realtime Integration
   useEffect(() => {
@@ -514,7 +510,7 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
                )}
 
                {user ? (
-                 <TicketForm onSubmit={handlePurchase} />
+                 <TicketForm onSubmit={handlePurchase} ticketPrice={config.ticket_price} />
                ) : (
                  <div className="bg-[#002d28] border border-white/5 rounded-3xl p-8 text-center space-y-4 shadow-xl">
                     <Trophy className="w-12 h-12 text-[#facc15] mx-auto opacity-50 mb-4" />
@@ -630,38 +626,46 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
             </div>
             <CardContent className="p-0">
                <div className="divide-y divide-white/5">
-                  {[
-                    { rank: "Grand Champion", prize: config.prize_1, color: "text-[#facc15]", stepIndex: 4 },
-                    { rank: "2nd Place", prize: config.prize_2, color: "text-white", stepIndex: 3 },
-                    { rank: "3rd Place", prize: config.prize_3, color: "text-white/80", stepIndex: 2 },
-                    { rank: "4th Place", prize: config.prize_4, color: "text-white/60", stepIndex: 1 },
-                    { rank: "5th Place", prize: config.prize_5, color: "text-white/40", stepIndex: 0 },
-                  ].map((p, i) => {
-                    const winner = winners[p.stepIndex];
-                    const isRevealed = winners.length > 0 && (drawStep > p.stepIndex || (drawStep === p.stepIndex && (showWinnerSequence || interWinnerCountdown !== null)));
-                    const isDrawingCurrent = isDrawing && drawStep === p.stepIndex;
+                  {(() => {
+                    const totalPrizePool = (config.total_tickets || 100) * (config.ticket_price || 1);
+                    return Array.from({ length: config.winners_count || 1 }).map((_, i) => {
+                      const rank = i + 1;
+                      const prizeObj = config.prizes?.find((p: any) => p.rank === rank) || { percentage: 0 };
+                      const prizeAmount = totalPrizePool * ((prizeObj.percentage || 0) / 100);
+                      const stepIndex = (config.winners_count || 1) - rank;
 
-                    return (
-                      <div key={i} className="px-6 py-4 flex items-center justify-between">
-                         <div className="flex flex-col">
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${p.color}`}>{p.rank}</span>
-                            {isRevealed && winner ? (
-                              <span className="text-sm font-bold text-white truncate max-w-[150px]">{winner.name}</span>
-                            ) : isDrawingCurrent ? (
-                              <span className="text-[10px] font-black text-emerald-400 animate-pulse uppercase">Drawing...</span>
-                            ) : (
-                              <span className="text-[10px] font-bold text-[#7da09d] italic opacity-40">Pending Draw</span>
-                            )}
-                         </div>
-                         <div className="text-right">
-                            <span className={`text-lg font-black italic block ${p.color}`}>৳ {p.prize.toLocaleString()}</span>
-                            {isRevealed && winner && (
-                              <span className="text-[9px] font-mono text-white/40">#{winner.ticketNumbers[0]}</span>
-                            )}
-                         </div>
-                      </div>
-                    );
-                  })}
+                      let color = "text-white/40";
+                      if (rank === 1) color = "text-[#facc15]";
+                      else if (rank === 2) color = "text-white";
+                      else if (rank === 3) color = "text-white/80";
+                      else if (rank === 4) color = "text-white/60";
+
+                      const winner = winners[stepIndex];
+                      const isRevealed = winners.length > 0 && (drawStep > stepIndex || (drawStep === stepIndex && (showWinnerSequence || interWinnerCountdown !== null)));
+                      const isDrawingCurrent = isDrawing && drawStep === stepIndex;
+
+                      return { rank, prizeAmount, stepIndex, color, isRevealed, winner, isDrawingCurrent };
+                    });
+                  })().sort((a, b) => a.rank - b.rank).map((p, i) => (
+                    <div key={i} className="px-6 py-4 flex items-center justify-between">
+                       <div className="flex flex-col">
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${p.color}`}>{getRankSuffix(p.rank)}</span>
+                          {p.isRevealed && p.winner ? (
+                            <span className="text-sm font-bold text-white truncate max-w-[150px]">{p.winner.name}</span>
+                          ) : p.isDrawingCurrent ? (
+                            <span className="text-[10px] font-black text-emerald-400 animate-pulse uppercase">Drawing...</span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-[#7da09d] italic opacity-40">Pending Draw</span>
+                          )}
+                       </div>
+                       <div className="text-right">
+                          <span className={`text-lg font-black italic block ${p.color}`}>৳ {Math.round(p.prizeAmount).toLocaleString()}</span>
+                          {p.isRevealed && p.winner && (
+                            <span className="text-[9px] font-mono text-white/40">#{p.winner.ticketNumbers[0]}</span>
+                          )}
+                       </div>
+                    </div>
+                  ))}
                </div>
             </CardContent>
           </Card>
