@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Trophy,
   Ticket as TicketIcon,
+  Zap,
   CheckCircle2,
   XCircle
 } from 'lucide-react';
@@ -474,11 +475,13 @@ export default function GameConfigPage() {
                       </Label>
                       <input 
                         type="datetime-local"
-                        value={formData.draw_date ? new Date(formData.draw_date).toISOString().slice(0, 16) : ''} 
+                        value={formData.draw_date ? (new Date(new Date(formData.draw_date).getTime() - (new Date(formData.draw_date).getTimezoneOffset() * 60000)).toISOString().slice(0, 16)) : ''} 
                         onChange={(e) => setFormData({...formData, draw_date: e.target.value})}
                         className="flex h-12 w-full rounded-md border border-[#facc15]/30 bg-[#facc15]/5 px-4 font-black text-[#facc15] focus:outline-none focus:ring-1 focus:ring-[#facc15] shadow-[0_0_15px_rgba(250,204,21,0.05)]"
                       />
-                      <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter opacity-60">Setting this will synchronize the countdown for all live players instantly.</p>
+                      <p className="text-[8px] font-bold text-[#facc15] uppercase tracking-tighter opacity-80 flex items-center gap-1">
+                        <Zap className="w-2 h-2" /> OPERATING IN BD DHAKA TIME (GMT+6)
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

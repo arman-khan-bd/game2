@@ -325,8 +325,9 @@ export default function GamesManager() {
                     <Clock className="w-2 h-2" /> Global Draw Sync
                   </p>
                   <p className="text-[10px] font-black text-[#facc15]/90">
-                    {game && game.draw_date ? new Date(game.draw_date).toLocaleString() : 'AUTO-PLAY MODE'}
+                    {game && game.draw_date ? new Date(game.draw_date).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', hour12: true }) : 'AUTO-PLAY MODE'}
                   </p>
+                  <p className="text-[7px] text-[#facc15]/50 uppercase mt-0.5">Dhaka Time (GMT+6)</p>
                 </div>
               </div>
 

@@ -155,20 +155,23 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
 
   // Update countdown based on target draw date
   useEffect(() => {
-    if (!targetDrawDate || systemStatus !== "buying") return;
+    if (!targetDrawDate) return;
 
     const updateTimer = () => {
       const now = Date.now();
       const diff = Math.floor((targetDrawDate.getTime() - now) / 1000);
       
-      if (diff <= 0) {
-        setEventCountdown(0);
-        setSystemStatus("pre-game");
-        setActiveTab("draw");
-        setPreGameCountdown(5);
-        toast({ title: "ENTRIES CLOSED", description: "Transitioning to live slot engine..." });
-      } else {
+      if (diff > 0) {
         setEventCountdown(diff);
+        setSystemStatus("buying");
+      } else {
+        setEventCountdown(0);
+        // Only auto-transition if it was previously in buying mode or just reached zero
+        if (systemStatus === "buying") {
+          setSystemStatus("pre-game");
+          setActiveTab("draw");
+          setPreGameCountdown(5);
+        }
       }
     };
 
@@ -556,7 +559,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       
       <div className="grid lg:grid-cols-12 gap-8 items-start">
         <div className="lg:col-span-7 space-y-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs defaultValue="buy" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="bg-[#002d28] border border-white/5 p-1 rounded-2xl w-full grid grid-cols-2 mb-8">
               <TabsTrigger 
                 value="buy" 
@@ -573,16 +576,18 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="buy" className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
-               {systemStatus === "buying" && (
-                 <div className="bg-[#002d28] border border-white/5 rounded-[32px] p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-2xl relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-[#facc15]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+             <TabsContent value="buy" className="space-y-6 animate-in fade-in slide-in-from-left-4 duration-500">
+                {(systemStatus === "buying" || systemStatus === "pre-game") && (
+                  <div className="bg-[#002d28] border border-white/5 rounded-[32px] p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-2xl relative overflow-hidden group">
+                     <div className="absolute inset-0 bg-gradient-to-r from-[#facc15]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="flex items-center gap-4 relative z-10">
                       <div className="w-14 h-14 rounded-2xl bg-[#facc15]/10 flex items-center justify-center border border-[#facc15]/20 shadow-inner">
                         <Timer className="w-7 h-7 text-[#facc15] animate-pulse" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#7da09d] mb-0.5">Registration Window</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#7da09d] mb-0.5 flex items-center gap-2">
+                          Registration Window <span className="text-[8px] bg-[#facc15]/10 text-[#facc15] px-1.5 py-0.5 rounded tracking-tighter">DHAKA SYNC (GMT+6)</span>
+                        </p>
                         <div className="flex items-baseline gap-2">
                           <p className="text-3xl font-black italic text-white uppercase tracking-tighter">
                             {formatTime(eventCountdown)}
