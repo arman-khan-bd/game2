@@ -49,68 +49,42 @@ const SlotReelEngine = ({
   winningTicket: string | null, 
   onSpinEnd: () => void 
 }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const spinSpeedRef = useRef(50);
+  const [displayedNumber, setDisplayedNumber] = useState('88888888');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const internalSpinState = useRef<"idle" | "spinning" | "stopping">("idle");
 
   useEffect(() => {
-    // Start spin action triggered by parent state update
-    if (spinning && internalSpinState.current === "idle" && participants.length > 0) {
-      internalSpinState.current = "spinning";
-      let spinsLeft = Math.max(30, Math.floor(Math.random() * 20) + 30);
-      spinSpeedRef.current = 40; // Fast initial speed
+    if (spinning) {
+      let counter = 0;
+      const totalSpins = 40 + Math.floor(Math.random() * 20);
       
       const tick = () => {
-        setCurrentIndex((prev) => (prev + 1) % participants.length);
-        spinsLeft--;
+        const randomIdx = Math.floor(Math.random() * participants.length);
+        setDisplayedNumber(participants[randomIdx] || '88888888');
+        counter++;
 
-        if (spinsLeft < 15) {
-          spinSpeedRef.current += 30; // Friction slowdown
-        }
-
-        if (spinsLeft > 0) {
-          timerRef.current = setTimeout(tick, spinSpeedRef.current);
+        if (counter < totalSpins) {
+          const speed = counter > totalSpins - 10 ? 150 : 50;
+          timerRef.current = setTimeout(tick, speed);
         } else {
-          // Stop requested, hard set to winning target index
-          if (winningTicket) {
-             const targetIndex = participants.indexOf(winningTicket);
-             if (targetIndex !== -1) setCurrentIndex(targetIndex);
-          }
-          internalSpinState.current = "idle";
-          onSpinEnd(); // Inform parent spin has concluded
+          // Final result
+          if (winningTicket) setDisplayedNumber(winningTicket);
+          onSpinEnd();
         }
       };
-      
       tick();
-    } else if (!spinning) {
-      // Emergency reset if parent sets spinning to false preemptively
-      internalSpinState.current = "idle";
-      if (timerRef.current) clearTimeout(timerRef.current);
+    } else if (winningTicket) {
+      setDisplayedNumber(winningTicket);
     }
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [spinning, participants, winningTicket, onSpinEnd]);
 
-  const displayedTicketNumber = participants.length > 0 
-    ? participants[currentIndex]
-    : '88888888';
-
   return (
-    <div className="w-full max-w-lg h-32 bg-black/60 border-2 border-white/10 rounded-2xl shadow-[inset_0_0_50px_rgba(0,0,0,1)] flex items-center justify-center overflow-hidden relative mx-auto z-10">
-       <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-black via-black/80 to-transparent z-10" />
-       <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-black via-black/80 to-transparent z-10" />
-       
-       <div className="w-full text-center transform transition-transform duration-75">
-         <div className={`text-4xl md:text-7xl font-mono font-black uppercase tracking-[0.2em] transition-all duration-75 ${(!spinning && winningTicket) ? 'text-[#facc15] scale-110 drop-shadow-[0_0_30px_rgba(250,204,21,0.5)]' : 'text-white/80 scale-100 blur-[0.5px]'}`}>
-           {displayedTicketNumber}
-         </div>
+    <div className="w-full max-w-lg h-32 bg-black/60 border-2 border-[#facc15]/30 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] flex items-center justify-center overflow-hidden relative mx-auto z-10">
+       <div className="text-4xl md:text-7xl font-mono font-black uppercase tracking-[0.2em] text-[#facc15] drop-shadow-[0_0_20px_rgba(250,204,21,0.4)]">
+         {displayedNumber}
        </div>
-       
-       <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-full max-w-xs border-x border-white/5 pointer-events-none" />
-       <div className="absolute top-1/2 left-0 right-0 h-px bg-[#facc15]/30 pointer-events-none" />
+       <div className="absolute top-1/2 left-0 right-0 h-px bg-[#facc15]/10 pointer-events-none" />
     </div>
   );
 };
@@ -158,20 +132,39 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     if (!targetDrawDate) return;
 
     const updateTimer = () => {
-      const now = Date.now();
-      const diff = Math.floor((targetDrawDate.getTime() - now) / 1000);
-      
+      const now = Date.now() + serverTimeOffset;
+      const diff = Math.floor((targetDrawDate!.getTime() - now) / 1000);
+
+      // 1. If we are STILL IN BUYING PHASE (Date is in future)
       if (diff > 0) {
         setEventCountdown(diff);
         setSystemStatus("buying");
-      } else {
-        setEventCountdown(0);
-        // Only auto-transition if it was previously in buying mode or just reached zero
-        if (systemStatus === "buying") {
-          setSystemStatus("pre-game");
-          setActiveTab("draw");
-          setPreGameCountdown(5);
+        return;
+      }
+
+      // 2. If Date has passed, Check for PERSISTENT DRAW RECOVERY
+      if (game?.draw_started_at) {
+        const startedAt = new Date(game.draw_started_at).getTime();
+        const tenMins = 10 * 60 * 1000;
+        const timeSinceStart = now - startedAt;
+        
+        if (timeSinceStart < tenMins) {
+           setWinners(game.current_winners || []);
+           setWinningNumbers(game.current_winning_numbers || []);
+           setDrawStep(game.current_step || 0);
+           setSystemStatus("finished");
+           setActiveTab("draw");
+           setRolloverCountdown(Math.floor((tenMins - timeSinceStart) / 1000));
+           return;
         }
+      }
+
+      // 3. Fallback transition if it's the exact moment or we are past but no session yet
+      setEventCountdown(0);
+      if (systemStatus === "buying") {
+        setSystemStatus("pre-game");
+        setActiveTab("draw");
+        setPreGameCountdown(5);
       }
     };
 
@@ -248,8 +241,12 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
         if (payload.preGameCountdown !== undefined) setPreGameCountdown(payload.preGameCountdown);
         if (payload.status) setSystemStatus(payload.status);
       })
-      .on('broadcast', { event: 'TICKET_BOUGHT' }, () => {
-        fetchTickets();
+      .on('broadcast', { event: 'TICKET_BOUGHT' }, ({ payload }) => {
+        if (payload.allTickets) {
+          setActiveTickets(payload.allTickets);
+        } else {
+          fetchTickets();
+        }
       })
       .on('broadcast', { event: 'DRAW_STARTED' }, ({ payload }) => {
         if (payload.winners) setWinners(payload.winners);
@@ -371,6 +368,18 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     setCurrentWinnerIndex(null);
     setInterWinnerCountdown(null);
     
+    // PERSIST TO DATABASE
+    fetch(`/api/admin/games/${game.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        draw_started_at: new Date().toISOString(),
+        current_winners: selectedWinningTickets,
+        current_winning_numbers: selectedWinningNumbers,
+        current_step: 0
+      })
+    }).catch(console.error);
+
     broadcastEvent('DRAW_STARTED', { 
       winningNumbers: selectedWinningNumbers,
       winners: selectedWinningTickets
@@ -494,9 +503,9 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       
       const savedTicket = result.ticket;
       setLastPurchase(savedTicket);
-      fetchTickets(); // Sync local state
+      fetchTickets();
       
-      broadcastEvent('TICKET_BOUGHT', { ticket: savedTicket });
+      broadcastEvent('TICKET_BOUGHT', { ticket: savedTicket, allTickets: [...activeTickets, savedTicket] });
 
       toast({ title: "TICKETS SECURED", description: `You generated ${data.quantity} tickets.` });
     } catch (e: any) {
@@ -542,9 +551,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     }
   }, [winners, drawStep, config, allTicketNumbers.length, game?.id, game?.winners_count, game?.next_winner_minutes, toast]);
 
-  const currentActiveWinningTicketStr = (isDrawing || winners.length === 0) 
-     ? null 
-     : winningNumbers[drawStep];
+  const currentActiveWinningTicketStr = winningNumbers[drawStep] || null;
 
   const skipTimer = () => {
     let nextStatus = systemStatus;
@@ -746,7 +753,12 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
                       <div className="bg-emerald-500/10 border border-emerald-500/30 p-8 rounded-3xl text-center space-y-2">
                          <Trophy className="w-12 h-12 text-emerald-400 mx-auto mb-2" />
                          <p className="text-xl font-black text-white italic uppercase">DRAW COMPLETE</p>
-                         <p className="text-xs font-bold text-[#7da09d] uppercase tracking-widest">All rank positions have been resolved.</p>
+                         <p className="text-xs font-bold text-[#facc15] uppercase tracking-widest animate-pulse">
+                            Next raffle draw access in {formatTime(rolloverCountdown || 0)}:
+                         </p>
+                         <p className="text-[10px] font-bold text-[#7da09d] uppercase tracking-widest">
+                           Results are being finalized in public records...
+                         </p>
                       </div>
                     ) : null}
                     
@@ -857,7 +869,8 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
         currentStep={drawStep}
         onNext={handleNextRequest}
         currentUserUid={user?.uid}
-        prizes={[config.prize_5, config.prize_4, config.prize_3, config.prize_2, config.prize_1]}
+        prizes={config.prizes || []}
+        totalPoolValue={allTicketNumbers.length * (config.ticket_price || 1)}
         countdown={interWinnerCountdown}
       />
 

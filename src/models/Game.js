@@ -62,6 +62,21 @@ const GameSchema = new mongoose.Schema({
   },
   draw_date: {
     type: Date,
+  },
+  draw_started_at: {
+    type: Date,
+  },
+  current_winners: {
+    type: Array,
+    default: [],
+  },
+  current_winning_numbers: {
+    type: Array,
+    default: [],
+  },
+  current_step: {
+    type: Number,
+    default: 0,
   }
 }, {
   timestamps: true,

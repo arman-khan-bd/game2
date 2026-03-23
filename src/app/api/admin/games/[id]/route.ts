@@ -58,7 +58,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       manual_winners: body.manual_winners,
       photo_url: body.photo_url || '',
       instructions: body.instructions,
-      draw_date: body.draw_date ? new Date(body.draw_date) : null
+      draw_date: body.draw_date ? new Date(body.draw_date) : null,
+      draw_started_at: body.draw_started_at ? new Date(body.draw_started_at) : undefined,
+      current_winners: body.current_winners,
+      current_winning_numbers: body.current_winning_numbers,
+      current_step: body.current_step
     };
 
     // Remove undefined values to avoid corrupting data

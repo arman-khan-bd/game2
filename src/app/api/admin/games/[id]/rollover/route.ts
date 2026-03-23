@@ -28,8 +28,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       { $set: { status: 'expired' } }
     );
 
-    // 3. Update game with new draw date
+    // 3. Update game with new draw date and clear session
     game.draw_date = nextDrawDate;
+    game.draw_started_at = null;
+    game.current_winners = [];
+    game.current_winning_numbers = [];
+    game.current_step = 0;
+    
     await game.save();
 
     return NextResponse.json({ 

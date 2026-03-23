@@ -53,6 +53,12 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
   const rankLabel = getRankSuffix(currentWinnerRank);
 
   useEffect(() => {
+    if (countdown === 1) {
+       onNext();
+    }
+  }, [countdown, onNext]);
+
+  useEffect(() => {
     if (open && winners[currentStep]) {
       triggerCelebration(currentStep);
     }
