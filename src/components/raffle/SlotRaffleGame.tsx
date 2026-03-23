@@ -208,6 +208,8 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   const [showWinnerSequence, setShowWinnerSequence] = useState(false);
   const [drawStep, setDrawStep] = useState(0); 
   const [interWinnerCountdown, setInterWinnerCountdown] = useState<number|null>(null);
+  const [rolloverCountdown, setRolloverCountdown] = useState<number|null>(null);
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
   const fetchTickets = useCallback(async () => {
     if (!game?.id) return;
@@ -409,17 +411,45 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     return () => clearTimeout(timerId);
   }, [preGameCountdown, systemStatus, startDraw]);
 
-  // Inter-winner countdown
+  // Tick all system timers
   useEffect(() => {
-    if (interWinnerCountdown === null) return;
-    if (interWinnerCountdown <= 0) {
-      setInterWinnerCountdown(null);
-      handleNextRequest();
-      return;
+    const timer = setInterval(() => {
+      if (interWinnerCountdown !== null && interWinnerCountdown > 0) {
+        setInterWinnerCountdown(prev => prev! - 1);
+        if (interWinnerCountdown === 1) {
+          setDrawStep(prev => prev + 1);
+          setIsDrawing(true);
+        }
+      }
+
+      if (rolloverCountdown !== null && rolloverCountdown > 0) {
+        setRolloverCountdown(prev => prev! - 1);
+        if (rolloverCountdown === 1) {
+          handleRollover();
+        }
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [interWinnerCountdown, rolloverCountdown]);
+
+  const handleRollover = async () => {
+    if (!game?.id) return;
+    try {
+      const res = await fetch(`/api/admin/games/${game.id}/rollover`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        // Broadcast reset to all users
+        broadcastEvent('GAME_ROLLOVER', { 
+           draw_date: data.draw_date,
+           status: 'buying'
+        });
+        // Reload page to reset all states cleanly
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error("Rollover failed:", err);
     }
-    const timerId = setTimeout(() => setInterWinnerCountdown(interWinnerCountdown - 1), 1000);
-    return () => clearTimeout(timerId);
-  }, [interWinnerCountdown, handleNextRequest]);
+  };
 
   const handlePurchase = async (data: { name: string; phone: string; address: string; quantity: number }) => {
     if (systemStatus !== "buying") {
@@ -474,10 +504,6 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     }
   };
 
-  const currentActiveWinningTicketStr = (isDrawing || winners.length === 0) 
-     ? null 
-     : winningNumbers[drawStep];
-
   const handleSpinEnd = useCallback(async () => {
     setIsDrawing(false);
     setShowWinnerSequence(true);
@@ -507,17 +533,18 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       }
     }
 
-    if (drawStep < (config.winners_count || 1) - 1) {
-      setInterWinnerCountdown(300); // Wait 5 mins for next spin
+    if (drawStep < (game?.winners_count || 1) - 1) {
+      setInterWinnerCountdown((game?.next_winner_minutes || 5) * 60); 
     } else {
-      // Game fully finalized, expire all tickets
-      fetch('/api/tickets', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId: game?.id || 'slot_raffle', action: 'expire_all' })
-      }).catch(console.error);
+      setSystemStatus("finished");
+      setRolloverCountdown(600); // 10 mins
+      toast({ title: "DRAW COMPLETED", description: "New round starts in 10 minutes." });
     }
-  }, [winners, drawStep, config, allTicketNumbers.length, game?.id]);
+  }, [winners, drawStep, config, allTicketNumbers.length, game?.id, game?.winners_count, game?.next_winner_minutes, toast]);
+
+  const currentActiveWinningTicketStr = (isDrawing || winners.length === 0) 
+     ? null 
+     : winningNumbers[drawStep];
 
   const skipTimer = () => {
     let nextStatus = systemStatus;
