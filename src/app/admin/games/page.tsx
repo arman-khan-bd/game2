@@ -319,11 +319,15 @@ export default function GamesManager() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 rounded-xl bg-white/5 border border-white/5">
                   <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Tickets & Price</p>
-                  <p className="text-sm font-black text-white">{game.total_tickets} @ ${game.ticket_price}</p>
+                  <p className="text-sm font-black text-white">{game.total_tickets} @ ৳{game.ticket_price}</p>
                 </div>
-                <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Frequency</p>
-                  <p className="text-sm font-black text-white">{game.auto_play_hours}h / {game.next_winner_minutes}m</p>
+                <div className="p-3 rounded-xl bg-[#facc15]/5 border border-[#facc15]/20 col-span-2">
+                  <p className="text-[8px] font-black uppercase text-[#facc15] mb-1 flex items-center gap-1">
+                    <Clock className="w-2 h-2" /> Global Draw Sync
+                  </p>
+                  <p className="text-[10px] font-black text-[#facc15]/90">
+                    {game.draw_date ? new Date(game.draw_date).toLocaleString() : 'AUTO-PLAY MODE'}
+                  </p>
                 </div>
               </div>
 
