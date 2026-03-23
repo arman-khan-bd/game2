@@ -126,14 +126,27 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   const { data: storedTickets } = useCollection('raffleTickets');
   const [activeTickets, setActiveTickets] = useState<TicketData[]>([]);
   const [lastPurchase, setLastPurchase] = useState<TicketData | null>(null);
-  const [config, setConfig] = useState<any>({
-    prize_1: 100000, prize_2: 50000, prize_3: 25000, prize_4: 10000, prize_5: 5000
-  });
+
+  // Use passed game config or fallback
+  const config = game || {
+    winners_count: 5,
+    prizes: [
+      { rank: 1, percentage: 40 },
+      { rank: 2, percentage: 25 },
+      { rank: 3, percentage: 15 },
+      { rank: 4, percentage: 10 },
+      { rank: 5, percentage: 10 }
+    ],
+    manual_winners: {},
+    is_bot_play: false,
+    ticket_price: 1,
+    next_winner_minutes: 5
+  };
   
   // System State
   const [activeTab, setActiveTab] = useState("buy");
   const [systemStatus, setSystemStatus] = useState<"buying" | "pre-game" | "drawing" | "finished">("buying");
-  const [eventCountdown, setEventCountdown] = useState<number>(300); // 5 minutes main event buying window
+  const [eventCountdown, setEventCountdown] = useState<number>(300); 
   const [preGameCountdown, setPreGameCountdown] = useState<number | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   
@@ -148,6 +161,23 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   // UI Dialog States
   const [selectedTicketForDownload, setSelectedTicketForDownload] = useState<TicketData | null>(null);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
+
+  const fetchTickets = useCallback(async () => {
+    if (!game?.id) return;
+    try {
+      const res = await fetch(`/api/tickets?gameId=${game.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setActiveTickets(data.tickets || []);
+      }
+    } catch (err) {
+      console.error('Fetch tickets error:', err);
+    }
+  }, [game?.id]);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
 
   const allTicketNumbers = activeTickets.flatMap(t => t.ticketNumbers);
 
@@ -182,7 +212,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
 
   const handleNextRequest = useCallback(() => {
     setShowWinnerSequence(false);
-    if (drawStep < 4) {
+    if (drawStep < (config.winners_count - 1)) {
       const nextStep = drawStep + 1;
       setDrawStep(nextStep);
       setIsDrawing(false);
@@ -195,14 +225,15 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     } else {
       setSystemStatus("finished");
     }
-  }, [drawStep, winningNumbers, triggerNextSpin]);
+  }, [drawStep, winningNumbers, triggerNextSpin, config.winners_count]);
 
   const startDraw = useCallback(() => {
-    if (allTicketNumbers.length < 5) {
+    const winnerLimit = config.winners_count || 1;
+    if (allTicketNumbers.length < winnerLimit) {
       toast({
         variant: "destructive",
         title: "INSUFFICIENT POOL",
-        description: "A minimum of 5 total tickets must be in the pool to start the grand format."
+        description: `A minimum of ${winnerLimit} total tickets must be in the pool to start the grand format.`
       });
       return;
     }
@@ -211,9 +242,8 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     const pool = [...allTicketNumbers];
     const selectedWinningNumbers: string[] = [];
     const selectedWinningTickets: TicketData[] = [];
-    const totalWinners = config.winners_count || 1;
 
-    for (let i = 0; i < totalWinners; i++) {
+    for (let i = 0; i < winnerLimit; i++) {
       const idx = Math.floor(Math.random() * pool.length);
       const number = pool.splice(idx, 1)[0];
       selectedWinningNumbers.push(number);
@@ -236,7 +266,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     setTimeout(() => {
       triggerNextSpin(0, selectedWinningNumbers);
     }, 100);
-  }, [allTicketNumbers, activeTickets, toast, triggerNextSpin]);
+  }, [allTicketNumbers, activeTickets, toast, triggerNextSpin, config.winners_count]);
 
   // Main Event Countdown Logic
   useEffect(() => {
@@ -280,19 +310,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     return () => clearTimeout(timerId);
   }, [interWinnerCountdown, handleNextRequest]);
 
-  useEffect(() => {
-    async function fetchConfig() {
-      const { data } = await supabase.from('raffle_config').select('*').maybeSingle();
-      if (data) setConfig(data);
-    }
-    fetchConfig();
-  }, []);
 
-  useEffect(() => {
-    if (storedTickets) {
-      setActiveTickets(storedTickets as TicketData[]);
-    }
-  }, [storedTickets]);
 
   const handlePurchase = async (data: { name: string; phone: string; address: string; quantity: number }) => {
     if (systemStatus !== "buying") {

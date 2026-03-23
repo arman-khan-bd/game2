@@ -148,7 +148,7 @@ export default async function Home() {
                   />
                   {/* Real-time Data Badges */}
                   <div className="absolute top-2 left-2 px-2 py-0.5 bg-red-600 rounded text-[8px] font-black italic uppercase shadow-lg border border-red-400/50">
-                    POOL: ৳{((game.ticket_price || 0) * (game.total_tickets || 0)).toLocaleString()}
+                    POOL: ৳{((game.ticket_price || 0) * (game.soldTickets || 0)).toLocaleString()}
                   </div>
                   <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
                      <span className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] font-bold text-[#facc15] shadow-lg border border-white/10 uppercase">
