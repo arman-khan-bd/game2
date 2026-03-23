@@ -55,7 +55,8 @@ export async function POST(req: Request) {
       is_active,
       winners_count,
       prizes,
-      instructions
+      instructions,
+      draw_date
     } = body;
 
     if (!id || !name) {
@@ -83,7 +84,8 @@ export async function POST(req: Request) {
       winners_count: parseInt(winners_count) || 1,
       prizes: prizes || [],
       photo_url: body.photo_url || '',
-      instructions: instructions || "Welcome to the game. Place your bets and wait for the system to finalize the sequence."
+      instructions: instructions || "Welcome to the game. Place your bets and wait for the system to finalize the sequence.",
+      draw_date: draw_date
     });
 
     return NextResponse.json({ game: newGame, message: "Game generated successfully" }, { status: 201 });

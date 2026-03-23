@@ -38,7 +38,8 @@ export default function GamesManager() {
     winners_count: 1,
     prizes: [{ rank: 1, percentage: 100 }],
     instructions: '',
-    photo_url: ''
+    photo_url: '',
+    draw_date: ''
   });
 
   const fetchGames = async () => {
@@ -95,7 +96,8 @@ export default function GamesManager() {
         winners_count: 1, 
         prizes: [{ rank: 1, percentage: 100 }],
         instructions: '',
-        photo_url: ''
+        photo_url: '',
+        draw_date: ''
       });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Installation Failed', description: err.message });
@@ -214,6 +216,11 @@ export default function GamesManager() {
               <div className="space-y-2">
                 <Label>Photo URL (Optional)</Label>
                 <Input placeholder="https://image-link.com/..." value={newGame.photo_url} onChange={e => setNewGame({...newGame, photo_url: e.target.value})} className="bg-white/5 border-white/10" />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Targeted Draw Sync (Optional)</Label>
+                <Input type="datetime-local" value={newGame.draw_date || ''} onChange={e => setNewGame({...newGame, draw_date: e.target.value})} className="bg-white/5 border-white/10" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

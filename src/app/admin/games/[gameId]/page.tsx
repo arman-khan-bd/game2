@@ -64,7 +64,8 @@ export default function GameConfigPage() {
     manual_winners: {},
     is_active: true,
     photo_url: '',
-    instructions: ''
+    instructions: '',
+    draw_date: null
   });
 
   const [activeTab, setActiveTab] = useState('config');
@@ -134,7 +135,8 @@ export default function GameConfigPage() {
             : (data.manual_winners || {}),
           is_active: data.is_active !== false,
           photo_url: data.photo_url || '',
-          instructions: data.instructions || ''
+          instructions: data.instructions || '',
+          draw_date: data.draw_date || null
         });
       } else {
         toast({ variant: "destructive", title: "Engine Missing", description: "The requested game core record does not exist in the database." });
