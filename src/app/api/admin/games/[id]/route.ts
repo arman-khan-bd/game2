@@ -58,7 +58,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       manual_winners: body.manual_winners,
       photo_url: body.photo_url || '',
       instructions: body.instructions,
-      draw_date: body.draw_date
+      draw_date: body.draw_date ? new Date(body.draw_date) : null
     };
 
     // Remove undefined values to avoid corrupting data
@@ -66,6 +66,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       // @ts-ignore
       if (updatePayload[key] === undefined) delete updatePayload[key];
     });
+
+    console.log('--- ADMIN UPDATE PAYLOAD ---', updatePayload);
 
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(slugId);
     const query = isObjectId ? { $or: [{ id: slugId }, { _id: slugId }] } : { id: slugId };
@@ -75,6 +77,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       { $set: updatePayload },
       { new: true, runValidators: true }
     );
+
+    console.log('--- SAVED GAME IN MONGODB ---', updatedGame?.draw_date);
 
     if (!updatedGame) {
       return NextResponse.json({ error: 'Game not found' }, { status: 404 });

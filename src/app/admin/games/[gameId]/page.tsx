@@ -244,9 +244,11 @@ export default function GameConfigPage() {
         is_active: formData.is_active,
         photo_url: formData.photo_url,
         instructions: formData.instructions,
-        draw_date: formData.draw_date,
+        draw_date: formData.draw_date ? new Date(formData.draw_date).toISOString() : null,
         updated_at: new Date().toISOString()
       };
+
+      console.log('--- CLIENT-SIDE UPDATE PAYLOAD ---', updatePayload);
 
       const response = await fetch(`/api/admin/games/${gameId}`, {
         method: 'PUT',
@@ -268,8 +270,8 @@ export default function GameConfigPage() {
         type: 'broadcast',
         event: 'TIMER_SYNC',
         payload: {
-          drawDate: formData.draw_date,
-          status: formData.is_active ? 'buying' : 'finished'
+          drawDate: updatePayload.draw_date,
+          status: formData.is_active ? (updatePayload.draw_date && new Date(updatePayload.draw_date).getTime() < Date.now() ? 'pre-game' : 'buying') : 'finished'
         }
       });
 
@@ -467,7 +469,7 @@ export default function GameConfigPage() {
                       </Label>
                       <input 
                         type="datetime-local"
-                        value={formData.draw_date ? new Date(new Date(formData.draw_date).getTime() - (new Date(formData.draw_date).getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''} 
+                        value={formData.draw_date ? (typeof formData.draw_date === 'string' ? formData.draw_date : new Date(new Date(formData.draw_date).getTime() - (new Date(formData.draw_date).getTimezoneOffset() * 60000)).toISOString().slice(0, 16)) : ''} 
                         onChange={(e) => setFormData({...formData, draw_date: e.target.value})}
                         className="flex h-12 w-full rounded-md border border-[#facc15]/30 bg-[#facc15]/5 px-4 font-black text-[#facc15] focus:outline-none focus:ring-1 focus:ring-[#facc15] shadow-[0_0_15px_rgba(250,204,21,0.05)]"
                       />

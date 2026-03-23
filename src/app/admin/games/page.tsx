@@ -72,10 +72,15 @@ export default function GamesManager() {
     e.preventDefault();
     setIsCreating(true);
     try {
+      const payload = {
+        ...newGame,
+        draw_date: newGame.draw_date ? new Date(newGame.draw_date).toISOString() : null
+      };
+
       const res = await fetch('/api/admin/games', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newGame)
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
 

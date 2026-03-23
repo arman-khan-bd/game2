@@ -80,8 +80,14 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
   };
   
   // System State
-  const [activeTab, setActiveTab] = useState("buy");
-  const [systemStatus, setSystemStatus] = useState<"buying" | "pre-game" | "drawing" | "finished">("buying");
+  const [activeTab, setActiveTab] = useState(() => {
+    if (game?.draw_date && new Date(game.draw_date).getTime() < Date.now()) return "draw";
+    return "buy";
+  });
+  const [systemStatus, setSystemStatus] = useState<"buying" | "pre-game" | "drawing" | "finished">(() => {
+    if (game?.draw_date && new Date(game.draw_date).getTime() < Date.now()) return "pre-game";
+    return "buying";
+  });
   
   // Synced Timer
   const [targetDrawDate, setTargetDrawDate] = useState<Date | null>(game?.draw_date ? new Date(game.draw_date) : null);

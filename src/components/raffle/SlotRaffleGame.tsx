@@ -144,10 +144,16 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   };
   
   // System State
-  const [activeTab, setActiveTab] = useState("buy");
-  const [systemStatus, setSystemStatus] = useState<"buying" | "pre-game" | "drawing" | "finished">("buying");
+  const [activeTab, setActiveTab] = useState(() => {
+    if (game?.draw_date && new Date(game.draw_date).getTime() < Date.now()) return "draw";
+    return "buy";
+  });
+  const [systemStatus, setSystemStatus] = useState<"buying" | "pre-game" | "drawing" | "finished">(() => {
+    if (game?.draw_date && new Date(game.draw_date).getTime() < Date.now()) return "pre-game";
+    return "buying";
+  });
   
-  // New Synced Timer Logic
+  // Synced Timer Logic
   const [targetDrawDate, setTargetDrawDate] = useState<Date | null>(game?.draw_date ? new Date(game.draw_date) : null);
   const [eventCountdown, setEventCountdown] = useState<number>(0);
   const [preGameCountdown, setPreGameCountdown] = useState<number|null>(null);

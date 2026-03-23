@@ -85,8 +85,10 @@ export async function POST(req: Request) {
       prizes: prizes || [],
       photo_url: body.photo_url || '',
       instructions: instructions || "Welcome to the game. Place your bets and wait for the system to finalize the sequence.",
-      draw_date: draw_date
+      draw_date: draw_date ? new Date(draw_date) : null
     });
+
+    console.log('--- CREATED GAME ---', newGame.draw_date);
 
     return NextResponse.json({ game: newGame, message: "Game generated successfully" }, { status: 201 });
   } catch (error: any) {
