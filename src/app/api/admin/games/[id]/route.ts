@@ -42,16 +42,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const updatePayload = {
       name: body.name,
-      instructions: body.instructions,
-      photo_url: body.photo_url,
-      min_bet: parseFloat(body.min_bet) || 0,
-      max_bet: parseFloat(body.max_bet) || 0,
-      preset_bets: body.preset_bets,
-      auto_play_seconds: parseFloat(body.auto_play_seconds) || 0,
-      payout_multiplier: parseFloat(body.payout_multiplier) || 1.0,
-      min_players: parseInt(body.min_players) || 1,
-      max_players: parseInt(body.max_players) || 100,
+      game_type: body.game_type,
+      total_tickets: parseInt(body.total_tickets) || 100,
+      ticket_price: parseFloat(body.ticket_price) || 1,
+      auto_play_hours: parseInt(body.auto_play_hours) || 24,
+      next_winner_minutes: parseInt(body.next_winner_minutes) || 10,
+      is_bot_play: !!body.is_bot_play,
       is_active: body.is_active,
+      winners_count: parseInt(body.winners_count) || 1,
+      prizes: body.prizes,
+      manual_winners: body.manual_winners,
     };
 
     // Remove undefined values to avoid corrupting data

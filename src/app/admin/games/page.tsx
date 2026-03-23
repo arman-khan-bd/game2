@@ -29,12 +29,14 @@ export default function GamesManager() {
   const [newGame, setNewGame] = useState({
     id: '',
     name: '',
-    game_type: 'slots',
-    photo_url: '',
-    instructions: '',
-    min_bet: 1,
-    max_bet: 1000,
-    auto_play_seconds: 5
+    game_type: 'raffle',
+    total_tickets: 100,
+    ticket_price: 1,
+    auto_play_hours: 24,
+    next_winner_minutes: 10,
+    is_bot_play: false,
+    winners_count: 1,
+    prizes: [{ rank: 1, percentage: 100 }]
   });
 
   const fetchGames = async () => {
@@ -79,7 +81,7 @@ export default function GamesManager() {
       toast({ title: 'Game Installed', description: 'New engine loaded to MongoDB.' });
       setIsDialogOpen(false);
       fetchGames(); // reload games list to show new game
-      setNewGame({ id: '', name: '', game_type: 'slots', photo_url: '', instructions: '', min_bet: 1, max_bet: 1000, auto_play_seconds: 5 });
+      setNewGame({ id: '', name: '', game_type: 'raffle', total_tickets: 100, ticket_price: 1, auto_play_hours: 24, next_winner_minutes: 10, is_bot_play: false, winners_count: 1, prizes: [{ rank: 1, percentage: 100 }] });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Installation Failed', description: err.message });
     } finally {
@@ -151,7 +153,6 @@ export default function GamesManager() {
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-white/10 backdrop-blur-2xl">
-                      <SelectItem value="slots">Slot Machine</SelectItem>
                       <SelectItem value="raffle">Raffle Draw</SelectItem>
                       <SelectItem value="slot_raffle">Slot-Style Raffle</SelectItem>
                     </SelectContent>
@@ -162,27 +163,78 @@ export default function GamesManager() {
                 <Label>Unique ID (URL param)</Label>
                 <Input required placeholder="mega-slots" value={newGame.id} onChange={e => setNewGame({...newGame, id: e.target.value})} className="bg-white/5 border-white/10" />
               </div>
-              <div className="space-y-2">
-                <Label>Cover Art URL</Label>
-                <Input placeholder="https://..." value={newGame.photo_url} onChange={e => setNewGame({...newGame, photo_url: e.target.value})} className="bg-white/5 border-white/10" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Total Tickets</Label>
+                  <Input type="number" required value={newGame.total_tickets} onChange={e => setNewGame({...newGame, total_tickets: Number(e.target.value)})} className="bg-white/5 border-white/10" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ticket Price ($)</Label>
+                  <Input type="number" step="0.01" required value={newGame.ticket_price} onChange={e => setNewGame({...newGame, ticket_price: Number(e.target.value)})} className="bg-white/5 border-white/10" />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Instructions (Short)</Label>
-                <Input placeholder="Match 3 variables to win" value={newGame.instructions} onChange={e => setNewGame({...newGame, instructions: e.target.value})} className="bg-white/5 border-white/10" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Auto-Play (Hours)</Label>
+                  <Input type="number" required value={newGame.auto_play_hours} onChange={e => setNewGame({...newGame, auto_play_hours: Number(e.target.value)})} className="bg-white/5 border-white/10" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Next Winner (Min)</Label>
+                  <Input type="number" required value={newGame.next_winner_minutes} onChange={e => setNewGame({...newGame, next_winner_minutes: Number(e.target.value)})} className="bg-white/5 border-white/10" />
+                </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Min Bet</Label>
-                  <Input type="number" required value={newGame.min_bet} onChange={e => setNewGame({...newGame, min_bet: Number(e.target.value)})} className="bg-white/5 border-white/10" />
+                  <Label>Number of Winners</Label>
+                  <Input 
+                    type="number" 
+                    min="1" 
+                    max="10" 
+                    required 
+                    value={newGame.winners_count} 
+                    onChange={e => {
+                      const count = Number(e.target.value);
+                      const newPrizes = Array.from({ length: count }).map((_, i) => ({
+                        rank: i + 1,
+                        percentage: i === 0 ? 100 : 0
+                      }));
+                      setNewGame({...newGame, winners_count: count, prizes: newPrizes});
+                    }} 
+                    className="bg-white/5 border-white/10" 
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Max Bet</Label>
-                  <Input type="number" required value={newGame.max_bet} onChange={e => setNewGame({...newGame, max_bet: Number(e.target.value)})} className="bg-white/5 border-white/10" />
+                   <Label>Prize Percentages</Label>
+                   <div className="grid grid-cols-2 gap-2">
+                      {newGame.prizes.map((p, i) => (
+                        <div key={i} className="flex items-center gap-1">
+                          <span className="text-[8px] font-black text-white/40">{p.rank}:</span>
+                          <Input 
+                            type="number" 
+                            className="h-7 text-[10px] bg-white/5 border-white/10" 
+                            value={p.percentage}
+                            onChange={(e) => {
+                              const updatedPrizes = [...newGame.prizes];
+                              updatedPrizes[i].percentage = Number(e.target.value);
+                              setNewGame({...newGame, prizes: updatedPrizes});
+                            }}
+                          />
+                        </div>
+                      ))}
+                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Duration (s)</Label>
-                  <Input type="number" required value={newGame.auto_play_seconds} onChange={e => setNewGame({...newGame, auto_play_seconds: Number(e.target.value)})} className="bg-white/5 border-white/10" />
-                </div>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                <input 
+                  type="checkbox" 
+                  id="botPlay"
+                  checked={newGame.is_bot_play}
+                  onChange={e => setNewGame({...newGame, is_bot_play: e.target.checked})}
+                  className="w-4 h-4 rounded border-white/10 bg-white/5 text-primary"
+                />
+                <Label htmlFor="botPlay" className="cursor-pointer">Enable Bot Play</Label>
               </div>
               <Button type="submit" disabled={isCreating} className="w-full mt-4 font-black italic">
                 {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'GENERATE GAME'}
@@ -217,17 +269,17 @@ export default function GamesManager() {
             </div>
             <CardHeader>
               <CardTitle className="text-xl font-black italic uppercase tracking-tighter text-white">{game.name}</CardTitle>
-              <CardDescription className="text-xs uppercase tracking-widest font-bold line-clamp-1">{game.instructions}</CardDescription>
+              <CardDescription className="text-xs uppercase tracking-widest font-bold line-clamp-1">{game.game_type === 'slot_raffle' ? 'Slot-Style Raffle' : 'Standard Raffle'}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Bet Limits</p>
-                  <p className="text-sm font-black text-white">${game.min_bet} - ${game.max_bet}</p>
+                  <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Tickets & Price</p>
+                  <p className="text-sm font-black text-white">{game.total_tickets} @ ${game.ticket_price}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                  <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Auto-Play</p>
-                  <p className="text-sm font-black text-white">{game.auto_play_seconds}s interval</p>
+                  <p className="text-[8px] font-black uppercase text-muted-foreground mb-1">Frequency</p>
+                  <p className="text-sm font-black text-white">{game.auto_play_hours}h / {game.next_winner_minutes}m</p>
                 </div>
               </div>
               

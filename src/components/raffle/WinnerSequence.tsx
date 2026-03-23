@@ -20,8 +20,9 @@ interface WinnerSequenceProps {
   currentStep: number;
   onNext: () => void;
   currentUserUid?: string;
-  prizes?: number[];
+  prizes?: any[]; // Array of {rank, percentage} or numbers
   countdown: number | null;
+  totalPoolValue?: number;
 }
 
 export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
@@ -31,10 +32,25 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
   currentStep,
   onNext,
   currentUserUid,
-  prizes = [5000, 10000, 25000, 50000, 100000],
+  prizes = [],
   countdown,
+  totalPoolValue = 0,
 }) => {
-  const steps = ["5th Place", "4th Place", "3rd Place", "2nd Place", "Grand Champion"];
+  
+  const getRankSuffix = (n: number) => {
+    if (n === 1) return "Grand Champion";
+    const j = n % 10, k = n % 100;
+    if (j === 1 && k !== 11) return n + "st Place";
+    if (j === 2 && k !== 12) return n + "nd Place";
+    if (j === 3 && k !== 13) return n + "rd Place";
+    return n + "th Place";
+  };
+
+  // Rank is calculated based on total winners. 
+  // If 5 winners, winners[0] is rank 5, winners[4] is rank 1.
+  const totalWinners = winners.length;
+  const currentWinnerRank = totalWinners - currentStep;
+  const rankLabel = getRankSuffix(currentWinnerRank);
 
   useEffect(() => {
     if (open && winners[currentStep]) {
@@ -43,7 +59,7 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
   }, [open, currentStep, winners]);
 
   const triggerCelebration = (step: number) => {
-    const isGrand = step === 4;
+    const isGrand = step === (totalWinners - 1);
     // @ts-ignore - confetti is globally available via canvas-confetti
     import('canvas-confetti').then((confetti) => {
       confetti.default({
@@ -55,11 +71,18 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
     });
   };
 
-  if (winners.length < 5) return null;
+  if (winners.length === 0) return null;
 
   const currentWinner = winners[currentStep];
   const isCurrentUserWinner = currentUserUid && currentWinner?.userId === currentUserUid;
-  const prizeValue = prizes[currentStep] || 0;
+  
+  // Find prize for this rank
+  const prizeConfig = Array.isArray(prizes) ? prizes.find(p => p.rank === currentWinnerRank) : null;
+  const prizeDisplay = prizeConfig 
+    ? (totalPoolValue > 0 
+        ? `৳ ${((totalPoolValue * (prizeConfig.percentage || 0)) / 100).toLocaleString()}` 
+        : `${prizeConfig.percentage}% OF POOL`)
+    : "৳ 0";
 
   const formatCountdown = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -73,7 +96,7 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-[#facc15] to-emerald-500" />
         
         <DialogHeader className="sr-only">
-          <DialogTitle>{steps[currentStep]} Winner Announcement</DialogTitle>
+          <DialogTitle>{rankLabel} Winner Announcement</DialogTitle>
         </DialogHeader>
 
         <AnimatePresence mode="wait">
@@ -85,32 +108,32 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
             className="pt-10 pb-8 flex flex-col items-center text-center space-y-8"
           >
             <div className="relative">
-              <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center border-2 ${currentStep === 4 ? 'bg-[#facc15]/10 border-[#facc15] text-[#facc15]' : 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'}`}>
-                <Trophy className={currentStep === 4 ? 'w-12 h-12 animate-bounce' : 'w-10 h-10'} />
+              <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center border-2 ${currentWinnerRank === 1 ? 'bg-[#facc15]/10 border-[#facc15] text-[#facc15]' : 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'}`}>
+                <Trophy className={currentWinnerRank === 1 ? 'w-12 h-12 animate-bounce' : 'w-10 h-10'} />
               </div>
               <div className="absolute -top-2 -right-2 bg-white text-black text-[10px] font-black px-2 py-0.5 rounded-lg uppercase">
-                 Rank: {5 - currentStep}
+                 Rank: {currentWinnerRank}
               </div>
             </div>
 
             <div className="space-y-1">
-              <h2 className={`text-4xl font-black italic uppercase tracking-tighter ${currentStep === 4 ? 'text-[#facc15]' : 'text-white'}`}>
-                {steps[currentStep]}
+              <h2 className={`text-4xl font-black italic uppercase tracking-tighter ${currentWinnerRank === 1 ? 'text-[#facc15]' : 'text-white'}`}>
+                {rankLabel}
               </h2>
               <p className="text-[10px] font-black text-[#7da09d] uppercase tracking-[0.4em]">Winning Ticket Announced</p>
             </div>
 
             <div className="relative group py-6 px-12 rounded-3xl bg-black/40 border border-white/5 overflow-hidden">
-               <div className={`absolute inset-0 opacity-20 blur-2xl ${currentStep === 4 ? 'bg-[#facc15]' : 'bg-emerald-500'}`} />
-               <span className={`text-4xl md:text-5xl font-mono font-black relative z-10 ${currentStep === 4 ? 'text-[#facc15]' : 'text-white'}`}>
+               <div className={`absolute inset-0 opacity-20 blur-2xl ${currentWinnerRank === 1 ? 'bg-[#facc15]' : 'bg-emerald-500'}`} />
+               <span className={`text-4xl md:text-5xl font-mono font-black relative z-10 ${currentWinnerRank === 1 ? 'text-[#facc15]' : 'text-white'}`}>
                   #{currentWinner?.ticketNumbers[0]}
                </span>
             </div>
 
             <div className="flex flex-col items-center">
                <span className="text-[10px] font-black text-[#7da09d] uppercase mb-1">CASH PRIZE REWARD</span>
-               <span className={`text-3xl font-black italic ${currentStep === 4 ? 'text-[#facc15]' : 'text-emerald-400'}`}>
-                 ৳ {prizeValue.toLocaleString()}
+               <span className={`text-3xl font-black italic ${currentWinnerRank === 1 ? 'text-[#facc15]' : 'text-emerald-400'}`}>
+                 {prizeDisplay}
                </span>
             </div>
 
@@ -125,7 +148,7 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
                    <span className="text-lg font-black italic uppercase tracking-tighter">CONGRATULATIONS!</span>
                 </div>
                 <p className="text-sm font-bold text-white leading-relaxed">
-                  You won <span className="text-[#facc15]">৳ {prizeValue.toLocaleString()}</span>. 
+                  You won <span className="text-[#facc15]">{prizeDisplay}</span>. 
                   <br />
                   <span className="text-[10px] font-black uppercase text-[#7da09d] tracking-widest mt-2 block">
                     Winning price will be added in your account after end this game.
@@ -135,7 +158,7 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
             )}
 
             <div className="flex flex-col gap-4 w-full max-w-sm items-center justify-center pt-4">
-               {currentStep < 4 && countdown !== null && (
+               {currentStep < (totalWinners - 1) && countdown !== null && (
                  <div className="flex items-center gap-2 bg-white/5 px-6 py-3 rounded-full border border-white/10 text-emerald-400">
                     <Timer className="w-4 h-4 animate-spin" />
                     <span className="text-sm font-black italic uppercase tracking-widest">
@@ -145,7 +168,7 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
                )}
 
                <div className="flex gap-3 w-full max-sm:flex-col">
-                 {currentStep < 4 ? (
+                 {currentStep < (totalWinners - 1) ? (
                    <Button 
                      onClick={onNext}
                      className="flex-1 h-14 rounded-2xl bg-white text-black font-black italic uppercase tracking-widest text-xs hover:bg-white/90"

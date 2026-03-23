@@ -26,7 +26,19 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { id, name, game_type, instructions, photo_url, min_bet, max_bet, auto_play_seconds, is_active } = body;
+    const { 
+      id, 
+      name, 
+      game_type, 
+      total_tickets, 
+      ticket_price, 
+      auto_play_hours, 
+      next_winner_minutes, 
+      is_bot_play, 
+      is_active,
+      winners_count,
+      prizes
+    } = body;
 
     if (!id || !name) {
       return NextResponse.json({ error: 'Game slug (id) and name are required' }, { status: 400 });
@@ -43,13 +55,15 @@ export async function POST(req: Request) {
     const newGame = await Game.create({
       id: id.toLowerCase().replace(/\s+/g, '-'),
       name,
-      game_type: game_type || 'slots',
-      instructions,
-      photo_url,
-      min_bet: parseFloat(min_bet) || 1,
-      max_bet: parseFloat(max_bet) || 1000,
-      auto_play_seconds: parseInt(auto_play_seconds) || 5,
-      is_active: is_active ?? true
+      game_type: game_type || 'raffle',
+      total_tickets: parseInt(total_tickets) || 100,
+      ticket_price: parseFloat(ticket_price) || 1,
+      auto_play_hours: parseInt(auto_play_hours) || 24,
+      next_winner_minutes: parseInt(next_winner_minutes) || 10,
+      is_bot_play: !!is_bot_play,
+      is_active: is_active ?? true,
+      winners_count: parseInt(winners_count) || 1,
+      prizes: prizes || []
     });
 
     return NextResponse.json({ game: newGame, message: "Game generated successfully" }, { status: 201 });

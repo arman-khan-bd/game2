@@ -31,16 +31,27 @@ export interface TicketData {
   userId?: string;
 }
 
-export const RaffleTicketSystem = () => {
+export const RaffleTicketSystem = ({ game }: { game?: any }) => {
   const { user } = useUser();
   const { toast } = useToast();
   
   const { data: storedTickets } = useCollection('raffleTickets');
   const [activeTickets, setActiveTickets] = useState<TicketData[]>([]);
   const [lastPurchase, setLastPurchase] = useState<TicketData | null>(null);
-  const [config, setConfig] = useState<any>({
-    prize_1: 100000, prize_2: 50000, prize_3: 25000, prize_4: 10000, prize_5: 5000
-  });
+  
+  // Use passed game config or fallback
+  const config = game || {
+    winners_count: 5,
+    prizes: [
+      { rank: 1, percentage: 40 },
+      { rank: 2, percentage: 25 },
+      { rank: 3, percentage: 15 },
+      { rank: 4, percentage: 10 },
+      { rank: 5, percentage: 10 }
+    ],
+    manual_winners: {},
+    is_bot_play: false
+  };
   
   // System State
   const [activeTab, setActiveTab] = useState("buy");
@@ -62,7 +73,19 @@ export const RaffleTicketSystem = () => {
   const [selectedTicketForDownload, setSelectedTicketForDownload] = useState<TicketData | null>(null);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
 
-  const allTicketNumbers = activeTickets.flatMap(t => t.ticketNumbers);
+  // Filter tickets for this game
+  const allTicketNumbers = activeTickets
+    .filter(t => !game?.id || (t as any).gameId === game.id)
+    .flatMap(t => t.ticketNumbers);
+
+  const getRankSuffix = (n: number) => {
+    if (n === 1) return "Grand Champion";
+    const j = n % 10, k = n % 100;
+    if (j === 1 && k !== 11) return n + "st Place";
+    if (j === 2 && k !== 12) return n + "nd Place";
+    if (j === 3 && k !== 13) return n + "rd Place";
+    return n + "th Place";
+  };
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -81,7 +104,7 @@ export const RaffleTicketSystem = () => {
 
   const handleNextRequest = useCallback(() => {
     setShowWinnerSequence(false);
-    if (drawStep < 4) {
+    if (drawStep < (config.winners_count - 1)) {
       const nextStep = drawStep + 1;
       setDrawStep(nextStep);
       setIsDrawing(false);
@@ -94,14 +117,15 @@ export const RaffleTicketSystem = () => {
     } else {
       setSystemStatus("finished");
     }
-  }, [drawStep, winningNumbers, triggerNextSpin]);
+  }, [drawStep, winningNumbers, triggerNextSpin, config.winners_count]);
 
   const startDraw = useCallback(() => {
-    if (allTicketNumbers.length < 5) {
+    const winnerLimit = config.winners_count || 1;
+    if (allTicketNumbers.length < winnerLimit) {
       toast({
         variant: "destructive",
         title: "INSUFFICIENT POOL",
-        description: "A minimum of 5 total tickets must be in the pool to start the grand draw."
+        description: `A minimum of ${winnerLimit} total tickets must be in the pool to start the draw.`
       });
       return;
     }
@@ -111,18 +135,32 @@ export const RaffleTicketSystem = () => {
     const selectedWinningNumbers: string[] = [];
     const selectedWinningTickets: TicketData[] = [];
 
-    for (let i = 0; i < 5; i++) {
-      const idx = Math.floor(Math.random() * pool.length);
-      const number = pool.splice(idx, 1)[0];
-      selectedWinningNumbers.push(number);
-      
-      const originalTicket = activeTickets.find(t => t.ticketNumbers.includes(number));
-      if (originalTicket) {
-        selectedWinningTickets.push({
-          ...originalTicket,
-          ticketNumbers: [number] 
-        });
-      }
+    // Correct rank order for display (usually 1st is revealed last in these games, but let's follow rank order for logic)
+    // Actually, drawStep goes from 0 to winners_count-1. 
+    // We reveal them in reverse rank maybe? Or 1st to Last? 
+    // The previous code had 5 positions.
+    for (let i = 0; i < winnerLimit; i++) {
+       const rank = winnerLimit - i; // If 5 winners, it goes 5, 4, 3, 2, 1
+       const manualTicketNumber = config.manual_winners?.[rank.toString()];
+       
+       let number;
+       if (manualTicketNumber && pool.includes(manualTicketNumber)) {
+          number = manualTicketNumber;
+          const poolIdx = pool.indexOf(number);
+          pool.splice(poolIdx, 1);
+       } else {
+          const idx = Math.floor(Math.random() * pool.length);
+          number = pool.splice(idx, 1)[0];
+       }
+       
+       selectedWinningNumbers.push(number);
+       const originalTicket = activeTickets.find(t => t.ticketNumbers.includes(number));
+       if (originalTicket) {
+         selectedWinningTickets.push({
+           ...originalTicket,
+           ticketNumbers: [number] 
+         });
+       }
     }
     
     setWinningNumbers(selectedWinningNumbers);
@@ -134,7 +172,7 @@ export const RaffleTicketSystem = () => {
     setTimeout(() => {
       triggerNextSpin(0, selectedWinningNumbers);
     }, 100);
-  }, [allTicketNumbers, activeTickets, toast, triggerNextSpin]);
+  }, [allTicketNumbers, activeTickets, toast, triggerNextSpin, config]);
 
   // Main Event Countdown Logic
   useEffect(() => {
@@ -170,7 +208,7 @@ export const RaffleTicketSystem = () => {
     return () => clearTimeout(timerId);
   }, [preGameCountdown, systemStatus, startDraw]);
 
-  // Inter-winner 5 minute countdown
+  // Inter-winner countdown (respect next_winner_minutes)
   useEffect(() => {
     if (interWinnerCountdown === null) return;
     if (interWinnerCountdown <= 0) {
@@ -215,14 +253,6 @@ export const RaffleTicketSystem = () => {
   }, [systemStatus, allTicketNumbers.length]);
 
   useEffect(() => {
-    async function fetchConfig() {
-      const { data } = await supabase.from('raffle_config').select('*').maybeSingle();
-      if (data) setConfig(data);
-    }
-    fetchConfig();
-  }, []);
-
-  useEffect(() => {
     if (storedTickets) {
       setActiveTickets(storedTickets as TicketData[]);
     }
@@ -238,14 +268,15 @@ export const RaffleTicketSystem = () => {
       return Math.floor(100000000000 + Math.random() * 900000000000).toString();
     });
 
-    const ticketRecord: TicketData = {
+    const ticketRecord: any = {
       id: Math.random().toString(36).substring(2, 9),
       name: data.name,
       phone: data.phone,
       address: data.address,
       ticketNumbers: newNumbers,
       purchaseDate: new Date().toISOString(),
-      userId: user?.uid
+      userId: user?.uid,
+      gameId: game?.id || 'default'
     };
 
     try {
@@ -272,23 +303,28 @@ export const RaffleTicketSystem = () => {
     const currentWinner = winners[drawStep];
     if (currentWinner) {
       try {
-        const prizeMap = [config.prize_5, config.prize_4, config.prize_3, config.prize_2, config.prize_1];
+        const rank = config.winners_count - drawStep;
+        const prizeInfo = config.prizes?.find((p: any) => p.rank === rank) || { percentage: 0 };
+        const totalPrizePool = (config.total_tickets || 100) * (config.ticket_price || 1);
+        const winAmount = (totalPrizePool * (prizeInfo.percentage / 100)) || 0;
+
         await supabase.from('raffle_winners').insert({
           ticket_number: currentWinner.ticketNumbers[0],
           user_id: currentWinner.userId || null,
           username: currentWinner.name,
-          rank: 5 - drawStep,
-          prize_amount: prizeMap[drawStep] || 0
+          rank: rank,
+          prize_amount: winAmount,
+          game_id: game?.id || 'raffle'
         });
       } catch (e) {
         console.warn("History save error:", e);
       }
     }
 
-    if (drawStep < 4) {
-      setInterWinnerCountdown(300); // 5 minutes between winners
+    if (drawStep < (config.winners_count - 1)) {
+      setInterWinnerCountdown((config.next_winner_minutes || 5) * 60); 
     }
-  }, [winners, drawStep, config]);
+  }, [winners, drawStep, config, game?.id]);
 
   const skipTimer = () => {
     if (systemStatus === "buying") setEventCountdown(0);
@@ -404,7 +440,7 @@ export const RaffleTicketSystem = () => {
                         <div className="flex items-center gap-3 bg-black/40 px-8 py-4 rounded-2xl border border-[#facc15]/30">
                           <Loader2 className="w-6 h-6 text-[#facc15] animate-spin" />
                           <span className="text-xl font-black italic text-[#facc15] uppercase tracking-tighter">
-                            DRAWING {5 - drawStep}TH PLACE...
+                            DRAWING {getRankSuffix(config.winners_count - drawStep)}...
                           </span>
                         </div>
                         <p className="text-[10px] font-black text-[#7da09d] uppercase tracking-[0.3em] animate-pulse">
@@ -420,7 +456,7 @@ export const RaffleTicketSystem = () => {
                           </span>
                         </div>
                         <p className="text-[10px] font-black text-[#7da09d] uppercase tracking-[0.3em]">
-                          PREPARING {5 - (drawStep + 1)}TH PLACE REVEAL
+                          PREPARING {getRankSuffix(config.winners_count - (drawStep + 1))} REVEAL
                         </p>
                       </div>
                     ) : systemStatus === "finished" ? (
@@ -522,8 +558,9 @@ export const RaffleTicketSystem = () => {
         currentStep={drawStep}
         onNext={handleNextRequest}
         currentUserUid={user?.uid}
-        prizes={[config.prize_5, config.prize_4, config.prize_3, config.prize_2, config.prize_1]}
+        prizes={config.prizes}
         countdown={interWinnerCountdown}
+        totalPoolValue={activeTickets.reduce((acc, t) => acc + (t.ticketNumbers?.length || 0), 0) * (game?.ticket_price || 1)}
       />
 
       <Dialog open={isDownloadDialogOpen} onOpenChange={setIsDownloadDialogOpen}>

@@ -37,7 +37,7 @@ export default async function DynamicGameRoute({ params }: { params: Promise<{ g
 
         {/* Dynamic Engine Router based on game_type */}
         {gameInfo.game_type === 'raffle' && (
-          <RaffleTicketSystem />
+          <RaffleTicketSystem game={gameInfo} />
         )}
 
         {gameInfo.game_type === 'slot_raffle' && (

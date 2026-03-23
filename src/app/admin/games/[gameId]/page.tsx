@@ -19,13 +19,20 @@ import {
   Type,
   Database,
   AlertCircle,
-  ShieldCheck
+  ShieldCheck,
+  Trophy,
+  Ticket as TicketIcon,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
+import { useCollection } from '@/firebase';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import Script from 'next/script';
 
 declare global {
@@ -46,18 +53,22 @@ export default function GameConfigPage() {
   
   const [formData, setFormData] = useState<any>({
     name: '',
-    instructions: '',
-    photo_url: '',
-    min_bet: 0,
-    max_bet: 0,
-    preset_bets: [],
-    auto_play_seconds: 0,
-    payout_multiplier: 1.0,
-    min_players: 1,
-    max_players: 100,
+    game_type: 'raffle',
+    total_tickets: 100,
+    ticket_price: 1,
+    auto_play_hours: 24,
+    next_winner_minutes: 10,
+    is_bot_play: false,
+    winners_count: 1,
+    prizes: [],
+    manual_winners: {},
     is_active: true
   });
 
+  const [activeTab, setActiveTab] = useState('config');
+  const { data: allTickets } = useCollection('raffleTickets');
+  const [ticketSearch, setTicketSearch] = useState('');
+  
   const [presetsInput, setPresetsInput] = useState('');
 
   const fetchGame = async () => {
@@ -77,18 +88,19 @@ export default function GameConfigPage() {
         setGame(data);
         setFormData({
           name: data.name || '',
-          instructions: data.instructions || '',
-          photo_url: data.photo_url || '',
-          min_bet: data.min_bet || 0,
-          max_bet: data.max_bet || 0,
-          preset_bets: data.preset_bets || [],
-          auto_play_seconds: data.auto_play_seconds || 0,
-          payout_multiplier: data.payout_multiplier || 1.0,
-          min_players: data.min_players || 1,
-          max_players: data.max_players || 100,
-          is_active: data.is_active ?? true
+          game_type: data.game_type || 'raffle',
+          total_tickets: data.total_tickets || 100,
+          ticket_price: data.ticket_price || 1,
+          auto_play_hours: data.auto_play_hours || 24,
+          next_winner_minutes: data.next_winner_minutes || 10,
+          is_bot_play: Boolean(data.is_bot_play),
+          winners_count: data.winners_count || 1,
+          prizes: data.prizes || [],
+          manual_winners: data.manual_winners instanceof Map 
+            ? Object.fromEntries(data.manual_winners) 
+            : (data.manual_winners || {}),
+          is_active: data.is_active !== false
         });
-        setPresetsInput((data.preset_bets || []).join(', '));
       } else {
         toast({ variant: "destructive", title: "Engine Missing", description: "The requested game core record does not exist in the database." });
       }
@@ -183,15 +195,15 @@ export default function GameConfigPage() {
 
       const updatePayload = {
         name: formData.name,
-        instructions: formData.instructions,
-        photo_url: formData.photo_url || null,
-        min_bet: parseFloat(formData.min_bet) || 0,
-        max_bet: parseFloat(formData.max_bet) || 0,
-        preset_bets: presets,
-        auto_play_seconds: parseFloat(formData.auto_play_seconds) || 0,
-        payout_multiplier: parseFloat(formData.payout_multiplier) || 1.0,
-        min_players: parseInt(formData.min_players) || 1,
-        max_players: parseInt(formData.max_players) || 100,
+        game_type: formData.game_type,
+        total_tickets: parseInt(formData.total_tickets) || 100,
+        ticket_price: parseFloat(formData.ticket_price) || 1,
+        auto_play_hours: parseInt(formData.auto_play_hours) || 24,
+        next_winner_minutes: parseInt(formData.next_winner_minutes) || 10,
+        is_bot_play: !!formData.is_bot_play,
+        winners_count: parseInt(formData.winners_count) || 1,
+        prizes: formData.prizes,
+        manual_winners: formData.manual_winners,
         is_active: formData.is_active,
         updated_at: new Date().toISOString()
       };
@@ -237,7 +249,7 @@ export default function GameConfigPage() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto pb-20">
       <Script src="https://upload-widget.cloudinary.com/global/all.js" strategy="lazyOnload" />
       
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <Link href="/admin/games">
             <Button variant="ghost" size="icon" className="hover:bg-white/10 rounded-xl">
@@ -246,184 +258,354 @@ export default function GameConfigPage() {
           </Link>
           <div>
             <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-tight">ENGINE <span className="text-primary">CONFIG</span></h1>
-            <p className="text-muted-foreground text-xs font-black uppercase tracking-widest opacity-60">{game.name}</p>
+            <p className="text-muted-foreground text-xs font-black uppercase tracking-widest opacity-60">{game?.name || 'RAFFLE CORE'}</p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={isSaving} className="font-black italic px-10 h-12 shadow-[0_0_20px_rgba(91,87,233,0.3)] uppercase tracking-widest text-[10px]">
-          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          SAVE PARAMETERS
-        </Button>
+
+        <div className="flex items-center gap-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-white/5 border border-white/5 rounded-xl p-1 h-12">
+            <TabsList className="bg-transparent border-none p-0 h-full">
+              <TabsTrigger value="config" className="text-[10px] font-black uppercase px-6 h-full data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg transition-all">Configuration</TabsTrigger>
+              <TabsTrigger value="tickets" className="text-[10px] font-black uppercase px-6 h-full data-[state=active]:bg-primary data-[state=active]:text-white rounded-lg transition-all">Active Entries</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          <Button onClick={handleSave} disabled={isSaving} className="font-black italic px-10 h-12 shadow-[0_0_20px_rgba(91,87,233,0.3)] uppercase tracking-widest text-[10px]">
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            SAVE PARAMETERS
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="bg-card/40 backdrop-blur-xl border-white/5 overflow-hidden shadow-2xl">
-            <div className="h-48 bg-black/40 overflow-hidden relative group">
-              {formData.photo_url ? (
-                <img src={formData.photo_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-primary/10">
-                  <Gamepad2 className="w-32 h-32" />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Button onClick={handleUpload} variant="outline" className="font-black italic uppercase tracking-widest text-[8px] bg-white/10 border-white/20">
-                  <UploadCloud className="w-3 h-3 mr-2" />
-                  UPLOAD NEW ASSET
-                </Button>
-              </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsContent value="config" className="mt-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-6">
+              <Card className="bg-card/40 backdrop-blur-xl border-white/5 overflow-hidden shadow-2xl">
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground">System Status</span>
+                    <div className="flex items-center gap-2">
+                      <span className={formData.is_active ? 'text-green-400 font-bold text-xs' : 'text-red-400 font-bold text-xs'}>
+                        {formData.is_active ? 'OPERATIONAL' : 'OFFLINE'}
+                      </span>
+                      <Switch 
+                        checked={formData.is_active} 
+                        onCheckedChange={(val) => setFormData({...formData, is_active: val})} 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground">Bot Play</span>
+                    <div className="flex items-center gap-2">
+                      <span className={formData.is_bot_play ? 'text-primary font-bold text-xs' : 'text-muted-foreground font-bold text-xs'}>
+                        {formData.is_bot_play ? 'ENABLED' : 'DISABLED'}
+                      </span>
+                      <Switch 
+                        checked={formData.is_bot_play} 
+                        onCheckedChange={(val) => setFormData({...formData, is_bot_play: val})} 
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-            <CardContent className="p-6 space-y-6">
-              <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
-                <span className="text-[10px] font-black uppercase text-muted-foreground">System Status</span>
-                <div className="flex items-center gap-2">
-                  <span className={formData.is_active ? 'text-green-400 font-bold text-xs' : 'text-red-400 font-bold text-xs'}>
-                    {formData.is_active ? 'OPERATIONAL' : 'OFFLINE'}
-                  </span>
-                  <Switch 
-                    checked={formData.is_active} 
-                    onCheckedChange={(val) => setFormData({...formData, is_active: val})} 
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                 <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                   <Database className="w-3 h-3" /> ASSET PATH
-                 </Label>
-                 <div className="flex gap-2">
-                   <input 
-                      value={formData.photo_url || ''} 
-                      onChange={(e) => setFormData({...formData, photo_url: e.target.value})}
-                      placeholder="https://res.cloudinary.com/..."
-                      className="flex h-10 w-full rounded-md border border-white/10 bg-background/50 px-3 text-[10px] font-mono font-bold text-primary truncate focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                    <Button onClick={handleUpload} size="icon" className="h-10 w-10 shrink-0 bg-primary/20 hover:bg-primary/40 border-primary/20">
-                      <UploadCloud className="w-4 h-4 text-primary" />
-                    </Button>
-                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="bg-card/40 backdrop-blur-xl border-white/5 shadow-2xl overflow-hidden text-white">
-            <CardHeader className="border-b border-white/5 pb-6">
-              <CardTitle className="text-lg font-black italic uppercase tracking-tighter flex items-center gap-3">
-                <Settings className="w-5 h-5 text-primary" />
-                Operational <span className="text-primary">Logic</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-8 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Type className="w-3 h-3" /> Display Name
-                  </Label>
-                  <input 
-                    value={formData.name || ''} 
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <FileText className="w-3 h-3" /> Instructions
-                  </Label>
-                  <input 
-                    value={formData.instructions || ''} 
-                    onChange={(e) => setFormData({...formData, instructions: e.target.value})}
-                    className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="bg-card/40 backdrop-blur-xl border-white/5 shadow-2xl overflow-hidden text-white">
+                <CardHeader className="border-b border-white/5 pb-6">
+                  <CardTitle className="text-lg font-black italic uppercase tracking-tighter flex items-center gap-3">
+                    <Settings className="w-5 h-5 text-primary" />
+                    Operational <span className="text-primary">Logic</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-8 space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <Type className="w-3 h-3" /> Architecture Type
+                      </Label>
+                      <select 
+                        value={formData.game_type || 'raffle'} 
+                        onChange={(e) => setFormData({...formData, game_type: e.target.value})}
+                        className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="raffle">Raffle Draw</option>
+                        <option value="slot_raffle">Slot-Style Raffle</option>
+                      </select>
+                    </div>
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <Type className="w-3 h-3" /> Display Name
+                      </Label>
+                      <input 
+                        value={formData.name || ''} 
+                        onChange={(e) => setFormData({...formData, name: e.target.value})}
+                        className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Min Bet Amount</Label>
-                  <input 
-                    type="number"
-                    value={formData.min_bet} 
-                    onChange={(e) => setFormData({...formData, min_bet: e.target.value})}
-                    className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Max Bet Amount</Label>
-                  <input 
-                    type="number"
-                    value={formData.max_bet} 
-                    onChange={(e) => setFormData({...formData, max_bet: e.target.value})}
-                    className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Tickets</Label>
+                      <input 
+                        type="number"
+                        value={formData.total_tickets} 
+                        onChange={(e) => setFormData({...formData, total_tickets: e.target.value})}
+                        className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ticket Price ($)</Label>
+                      <input 
+                        type="number"
+                        step="0.01"
+                        value={formData.ticket_price} 
+                        onChange={(e) => setFormData({...formData, ticket_price: e.target.value})}
+                        className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
 
-              <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Preset Bet Values (Comma separated)</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <Clock className="w-3 h-3" /> Auto-Play Frequency (Hours)
+                      </Label>
+                      <input 
+                        type="number"
+                        value={formData.auto_play_hours} 
+                        onChange={(e) => setFormData({...formData, auto_play_hours: e.target.value})}
+                        className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <Clock className="w-3 h-3" /> Next Winner Interval (Minutes)
+                      </Label>
+                      <input 
+                        type="number"
+                        value={formData.next_winner_minutes} 
+                        onChange={(e) => setFormData({...formData, next_winner_minutes: e.target.value})}
+                        className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <Trophy className="w-3 h-3" /> Number of Winners
+                      </Label>
+                      <input 
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formData.winners_count} 
+                        onChange={(e) => {
+                          const count = Number(e.target.value);
+                          const newPrizes = Array.from({ length: count }).map((_, i) => ({
+                            rank: i + 1,
+                            percentage: formData.prizes[i]?.percentage || 0
+                          }));
+                          setFormData({...formData, winners_count: count, prizes: newPrizes});
+                        }}
+                        className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground italic opacity-50">Note: Prize percentages must sum to 100%</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                         {formData.prizes.map((p: any, i: number) => (
+                           <div key={i} className="flex items-center gap-2 bg-white/5 p-2 rounded-lg border border-white/5">
+                              <span className="text-[10px] font-black text-primary">#{p.rank}:</span>
+                              <input 
+                                type="number"
+                                value={p.percentage}
+                                onChange={(e) => {
+                                  const updated = [...formData.prizes];
+                                  updated[i].percentage = Number(e.target.value);
+                                  setFormData({...formData, prizes: updated});
+                                }}
+                                className="bg-transparent w-full text-xs font-bold focus:outline-none"
+                              />
+                              <span className="text-[10px] font-black opacity-30">%</span>
+                           </div>
+                         ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="tickets" className="mt-0 animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-8">
+          {/* Winner Assignments Summary */}
+          {Object.keys(formData.manual_winners).length > 0 && (
+            <Card className="bg-primary/5 border-primary/20 shadow-2xl overflow-hidden">
+              <CardHeader className="py-4 border-b border-primary/10">
+                <CardTitle className="text-sm font-black italic uppercase tracking-widest text-primary flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" />
+                  Live Winner Assignments (Pinned)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="flex flex-wrap gap-4 p-4">
+                  {Array.from({ length: formData.winners_count }).map((_, i) => {
+                    const rank = i + 1;
+                    const ticketNum = formData.manual_winners[rank.toString()];
+                    return (
+                      <div key={rank} className="flex items-center gap-3 bg-black/40 border border-white/5 pl-4 pr-2 py-2 rounded-2xl group transition-all hover:border-primary/50">
+                        <div className="flex flex-col">
+                          <span className="text-[8px] font-black text-primary uppercase">Rank {rank}</span>
+                          <span className="text-xs font-mono font-black text-white">{ticketNum || 'UNASSIGNED'}</span>
+                        </div>
+                        {ticketNum && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 rounded-xl hover:bg-red-500/20 text-red-400"
+                            onClick={() => {
+                              const newManual = { ...formData.manual_winners };
+                              delete newManual[rank.toString()];
+                              setFormData({ ...formData, manual_winners: newManual });
+                            }}
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="bg-card/40 backdrop-blur-xl border-white/5 shadow-2xl overflow-hidden">
+            <CardHeader className="border-b border-white/5 pb-6 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-black italic uppercase tracking-tighter flex items-center gap-3">
+                  <TicketIcon className="w-5 h-5 text-primary" />
+                  Active <span className="text-primary">Entries</span>
+                </CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase tracking-widest opacity-60 mt-1">
+                  View all security-signed tickets and assign manual winners
+                </CardDescription>
+              </div>
+              <div className="w-64">
                 <input 
-                  value={presetsInput} 
-                  onChange={(e) => setPresetsInput(e.target.value)}
-                  className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black italic text-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  placeholder="2, 5, 10, 50, 100"
+                  placeholder="Search phone or name..."
+                  value={ticketSearch}
+                  onChange={e => setTicketSearch(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-[10px] font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Clock className="w-3 h-3" /> Auto-Play Cycle (Seconds)
-                  </Label>
-                  <input 
-                    type="number"
-                    value={formData.auto_play_seconds} 
-                    onChange={(e) => setFormData({...formData, auto_play_seconds: e.target.value})}
-                    className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Percent className="w-3 h-3" /> Payout Multiplier
-                  </Label>
-                  <input 
-                    type="number"
-                    step="0.1"
-                    value={formData.payout_multiplier} 
-                    onChange={(e) => setFormData({...formData, payout_multiplier: e.target.value})}
-                    className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  />
-                </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-white/5 bg-white/5 font-black uppercase tracking-widest text-[8px] text-muted-foreground">
+                      <th className="px-6 py-4">Participant</th>
+                      <th className="px-6 py-4">Contact & Location</th>
+                      <th className="px-6 py-4">Ticket Multi-Select</th>
+                      <th className="px-6 py-4 text-center">Pin Assignment</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {(allTickets as any[])?.filter(t => 
+                      t.name?.toLowerCase().includes(ticketSearch.toLowerCase()) || 
+                      t.phone?.includes(ticketSearch)
+                    ).map((ticket, idx) => (
+                      <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                        <td className="px-6 py-4 text-white">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-black italic">{ticket.name}</span>
+                            <span className="text-[9px] font-mono text-muted-foreground uppercase opacity-50">{ticket.id}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-white/80">{ticket.phone}</span>
+                            <span className="text-[9px] font-medium text-muted-foreground truncate max-w-[150px]">{ticket.address}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1.5 max-w-[300px]">
+                            {ticket.ticketNumbers?.map((n: string, i: number) => {
+                               // Check if THIS specific number is assigned to ANY rank
+                               const assignedRank = Object.keys(formData.manual_winners).find(r => formData.manual_winners[r] === n);
+                               return (
+                                 <button 
+                                   key={i} 
+                                   onClick={() => {
+                                     // Quick highlight logic if needed
+                                   }}
+                                   className={cn(
+                                     "px-2 py-1.5 rounded-lg border font-mono text-[9px] font-black transition-all",
+                                     assignedRank 
+                                      ? "bg-primary/20 border-primary text-primary ring-2 ring-primary/20" 
+                                      : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:border-white/30"
+                                   )}
+                                 >
+                                   #{n.substring(0, 5)}
+                                   {assignedRank && <span className="ml-1 opacity-60">R{assignedRank}</span>}
+                                 </button>
+                               );
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                           <div className="flex flex-col gap-2">
+                              <select 
+                                className="bg-black/60 border border-white/10 rounded-lg h-9 px-2 text-[10px] font-black text-white focus:outline-none focus:ring-1 focus:ring-primary appearance-none text-center"
+                                onChange={(e) => {
+                                  if (!e.target.value) return;
+                                  const [rank, ticketNum] = e.target.value.split('|');
+                                  const newManual = { ...formData.manual_winners };
+                                  newManual[rank] = ticketNum;
+                                  setFormData({ ...formData, manual_winners: newManual });
+                                  e.target.value = ""; // reset
+                                }}
+                              >
+                                <option value="">SELECT WINNER RANK...</option>
+                                {Array.from({ length: formData.winners_count }).map((_, rankIdx) => {
+                                  const rank = rankIdx + 1;
+                                  return (
+                                    <optgroup key={rank} label={`Rank ${rank}`}>
+                                      {ticket.ticketNumbers?.map((n: string) => (
+                                        <option key={`${rank}-${n}`} value={`${rank}|${n}`}>
+                                          Set #{n} as Rank {rank}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  );
+                                })}
+                              </select>
+                              <p className="text-[7px] font-black text-center text-muted-foreground uppercase tracking-widest">
+                                Pick a ranking for this entrant
+                              </p>
+                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Users className="w-3 h-3" /> Min Players
-                  </Label>
-                  <input 
-                    type="number"
-                    value={formData.min_players} 
-                    onChange={(e) => setFormData({...formData, min_players: e.target.value})}
-                    className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
+              {(!allTickets || allTickets.length === 0) && (
+                <div className="py-20 text-center text-[10px] font-black uppercase text-muted-foreground opacity-30">
+                  No tickets detected in the grand pool
                 </div>
-                <div className="space-y-3">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Users className="w-3 h-3" /> Max Capacity
-                  </Label>
-                  <input 
-                    type="number"
-                    value={formData.max_players} 
-                    onChange={(e) => setFormData({...formData, max_players: e.target.value})}
-                    className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -12,44 +12,41 @@ const GameSchema = new mongoose.Schema({
   },
   game_type: {
     type: String,
-    enum: ['slots', 'raffle', 'crash', 'roulette', 'slot_raffle'],
-    default: 'slots',
+    enum: ['raffle', 'slot_raffle'],
+    default: 'raffle',
   },
-  instructions: {
-    type: String,
-    default: '',
-  },
-  photo_url: {
-    type: String,
-    default: '',
-  },
-  min_bet: {
-    type: Number,
-    default: 1,
-  },
-  max_bet: {
-    type: Number,
-    default: 1000,
-  },
-  preset_bets: {
-    type: [Number],
-    default: [],
-  },
-  auto_play_seconds: {
-    type: Number,
-    default: 5,
-  },
-  payout_multiplier: {
-    type: Number,
-    default: 1.0,
-  },
-  min_players: {
-    type: Number,
-    default: 1,
-  },
-  max_players: {
+  total_tickets: {
     type: Number,
     default: 100,
+  },
+  ticket_price: {
+    type: Number,
+    default: 1,
+  },
+  auto_play_hours: {
+    type: Number,
+    default: 24,
+  },
+  next_winner_minutes: {
+    type: Number,
+    default: 10,
+  },
+  winners_count: {
+    type: Number,
+    default: 1,
+  },
+  prizes: [{
+    rank: Number,
+    percentage: Number,
+  }],
+  manual_winners: {
+    type: Map,
+    of: String,
+    default: {},
+  },
+  is_bot_play: {
+    type: Boolean,
+    default: false,
   },
   is_active: {
     type: Boolean,
