@@ -19,7 +19,13 @@ export const TicketVisual: React.FC<TicketVisualProps> = ({ ticket }) => {
     
     try {
       // Capture at original size for high quality
-      const dataUrl = await toPng(ticketRef.current, { cacheBust: true, pixelRatio: 3 });
+      // skipFonts: true avoids SecurityError on cross-origin stylesheets (e.g. Google Fonts)
+      const dataUrl = await toPng(ticketRef.current, { 
+        cacheBust: true, 
+        pixelRatio: 3,
+        skipFonts: true,
+        fontEmbedCSS: "" // Force empty font CSS to avoid stylesheet rule search
+      });
       const link = document.createElement('a');
       link.download = `CV666-ticket-${ticket.id}.png`;
       link.href = dataUrl;

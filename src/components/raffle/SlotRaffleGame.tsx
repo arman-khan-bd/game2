@@ -145,21 +145,9 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   // System State
   const [activeTab, setActiveTab] = useState("buy");
   const [systemStatus, setSystemStatus] = useState<"buying" | "pre-game" | "drawing" | "finished">("buying");
-  const [eventCountdown, setEventCountdown] = useState<number>(300); 
+  const [eventCountdown, setEventCountdown] = useState<number>((game?.auto_play_hours || 24) * 3600); // 24h default from DB
   const [preGameCountdown, setPreGameCountdown] = useState<number|null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  
-  // Drawing States
-  const [winners, setWinners] = useState<TicketData[]>([]);
-  const [winningNumbers, setWinningNumbers] = useState<string[]>([]);
-  const [currentWinnerIndex, setCurrentWinnerIndex] = useState<number|null>(null);
-  const [showWinnerSequence, setShowWinnerSequence] = useState(false);
-  const [drawStep, setDrawStep] = useState(0); 
-  const [interWinnerCountdown, setInterWinnerCountdown] = useState<number|null>(null);
-
-  // UI Dialog States
-  const [selectedTicketForDownload, setSelectedTicketForDownload] = useState<TicketData|null>(null);
-  const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
 
   const fetchTickets = useCallback(async () => {
     if (!game?.id) return;
@@ -177,6 +165,47 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
+
+  const broadcastEvent = useCallback(async (event: string, payload: any) => {
+    if (!game?.id) return;
+    await supabase.channel(`raffle-${game.id}`).send({
+      type: 'broadcast',
+      event,
+      payload
+    });
+  }, [game?.id]);
+
+  useEffect(() => {
+    if (!game?.id) return;
+    const channel = supabase.channel(`raffle-${game.id}`)
+      .on('broadcast', { event: 'TIMER_SYNC' }, ({ payload }) => {
+        setEventCountdown(payload.eventCountdown);
+        setPreGameCountdown(payload.preGameCountdown);
+        setSystemStatus(payload.status);
+      })
+      .on('broadcast', { event: 'TICKET_BOUGHT' }, () => {
+        fetchTickets();
+      })
+      .on('broadcast', { event: 'DRAW_STARTED' }, () => {
+        setSystemStatus("drawing");
+        setActiveTab("draw");
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [game?.id, fetchTickets]);
+  
+  // Drawing States
+  const [winners, setWinners] = useState<TicketData[]>([]);
+  const [winningNumbers, setWinningNumbers] = useState<string[]>([]);
+  const [currentWinnerIndex, setCurrentWinnerIndex] = useState<number|null>(null);
+  const [showWinnerSequence, setShowWinnerSequence] = useState(false);
+  const [drawStep, setDrawStep] = useState(0); 
+  const [interWinnerCountdown, setInterWinnerCountdown] = useState<number|null>(null);
+
+  // UI Dialog States
+  const [selectedTicketForDownload, setSelectedTicketForDownload] = useState<TicketData|null>(null);
+  const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
 
   const allTicketNumbers = activeTickets.flatMap(t => t.ticketNumbers);
 
@@ -407,6 +436,25 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   }, [winners, drawStep, config, allTicketNumbers.length, game?.id]);
 
   const skipTimer = () => {
+    let nextStatus = systemStatus;
+    let nextEventCount = eventCountdown;
+    let nextPreCount = preGameCountdown;
+
+    if (systemStatus === "buying") {
+      nextEventCount = 0;
+      nextStatus = "pre-game";
+    } else if (systemStatus === "pre-game") {
+      nextPreCount = 0;
+    } else if (interWinnerCountdown !== null) {
+      setInterWinnerCountdown(0);
+    }
+
+    broadcastEvent('TIMER_SYNC', {
+      eventCountdown: nextEventCount,
+      preGameCountdown: nextPreCount,
+      status: nextStatus
+    });
+
     if (systemStatus === "buying") setEventCountdown(0);
     else if (systemStatus === "pre-game") setPreGameCountdown(0);
     else if (interWinnerCountdown !== null) setInterWinnerCountdown(0);
@@ -525,10 +573,20 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
                       <div className="flex flex-col items-center gap-3 bg-black/40 px-10 py-6 rounded-3xl border border-white/10 text-center">
                          <Clock className="w-10 h-10 text-[#7da09d] animate-pulse" />
                          <p className="text-sm font-bold text-white uppercase tracking-widest">Entries are still being accepted</p>
-                         <p className="text-[10px] text-[#7da09d] max-w-[200px] leading-relaxed">
-                           Engine auto-calibrates in {formatTime(eventCountdown)}.
-                         </p>
-                      </div>
+                          <p className="text-[10px] text-[#7da09d] max-w-[200px] leading-relaxed">
+                            Engine auto-calibrates in {formatTime(eventCountdown)}.
+                          </p>
+                          {isAdmin && (
+                            <Button 
+                              onClick={skipTimer}
+                              variant="outline" 
+                              className="mt-4 h-11 border-white/10 bg-black/20 hover:bg-[#facc15] hover:text-black text-[#facc15] font-black italic uppercase text-[10px] tracking-widest px-6 rounded-xl transition-all active:scale-95 group/btn"
+                            >
+                              <FastForward className="w-3 h-3 mr-2 group-hover/btn:translate-x-1 transition-transform" />
+                              SKIP TIMER
+                            </Button>
+                          )}
+                       </div>
                     ) : systemStatus === "pre-game" ? (
                       <div className="flex flex-col items-center gap-4">
                         <div className="flex items-center gap-4 bg-[#facc15]/10 px-10 py-6 rounded-3xl border border-[#facc15]/30 shadow-[0_0_30px_rgba(250,204,21,0.2)]">

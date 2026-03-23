@@ -39,6 +39,7 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
   const [activeTickets, setActiveTickets] = useState<TicketData[]>([]);
   const [lastPurchase, setLastPurchase] = useState<TicketData | null>(null);
   const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchTickets = useCallback(async () => {
     if (!game?.id) return;
@@ -71,16 +72,28 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
       { rank: 5, percentage: 10 }
     ],
     manual_winners: {},
-    is_bot_play: false
+    is_bot_play: false,
+    auto_play_hours: 24,
+    next_winner_minutes: 5,
+    ticket_price: 1
   };
   
   // System State
   const [activeTab, setActiveTab] = useState("buy");
   const [systemStatus, setSystemStatus] = useState<"buying" | "pre-game" | "drawing" | "finished">("buying");
-  const [eventCountdown, setEventCountdown] = useState<number>(300); // 5 minutes main event
+  const [eventCountdown, setEventCountdown] = useState<number>((game?.auto_play_hours || 24) * 3600); // Dynamic from DB
   const [preGameCountdown, setPreGameCountdown] = useState<number | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   
+  useEffect(() => {
+    if (user) {
+      fetch(`/api/profile?uid=${user.uid}`)
+        .then(res => res.json())
+        .then(data => { if (data?.profile?.role === 'admin') setIsAdmin(true); })
+        .catch(console.error);
+    }
+  }, [user]);
+
   // Drawing States
   const [winners, setWinners] = useState<TicketData[]>([]);
   const [winningNumbers, setWinningNumbers] = useState<string[]>([]);
@@ -99,6 +112,11 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
     .filter(t => !game?.id || (t as any).gameId === game.id)
     .flatMap(t => t.ticketNumbers);
 
+  const openDialogIfUser = (ticket: TicketData) => {
+    setSelectedTicketForDownload(ticket);
+    setIsDownloadDialogOpen(true);
+  };
+
   const getRankSuffix = (n: number) => {
     if (n === 1) return "Grand Champion";
     const j = n % 10, k = n % 100;
@@ -109,6 +127,12 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
   };
 
   const formatTime = (seconds: number) => {
+    if (seconds >= 3600) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
@@ -213,11 +237,12 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
     if (eventCountdown <= 0) {
       setSystemStatus("pre-game");
       setActiveTab("draw");
-      setPreGameCountdown(60); // Start 1 minute pre-game
+      setPreGameCountdown(5); // 5 sec short transition
       toast({
         title: "ENTRIES CLOSED",
-        description: "The grand pool is now locked. Transitioning to live draw...",
+        description: "Transitioning to live slot engine...",
       });
+      broadcastEvent('DRAW_STARTED', {}); // Broadcast to all
       return;
     }
 
@@ -505,14 +530,16 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
                       </div>
                     </div>
                     
-                    <Button 
-                      onClick={skipTimer}
-                      variant="outline" 
-                      className="relative z-10 h-14 border-white/10 bg-black/20 hover:bg-[#facc15] hover:text-black text-[#facc15] font-black italic uppercase text-xs tracking-widest px-8 rounded-2xl transition-all active:scale-95 group/btn"
-                    >
-                      <FastForward className="w-4 h-4 mr-2 group-hover/btn:translate-x-1 transition-transform" />
-                      SKIP TO DRAW
-                    </Button>
+                    {isAdmin && (
+                      <Button 
+                        onClick={skipTimer}
+                        variant="outline" 
+                        className="relative z-10 h-14 border-white/10 bg-black/20 hover:bg-[#facc15] hover:text-black text-[#facc15] font-black italic uppercase text-xs tracking-widest px-8 rounded-2xl transition-all active:scale-95 group/btn"
+                      >
+                        <FastForward className="w-4 h-4 mr-2 group-hover/btn:translate-x-1 transition-transform" />
+                        SKIP TO DRAW
+                      </Button>
+                    )}
                  </div>
                )}
 
