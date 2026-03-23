@@ -186,9 +186,19 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       .on('broadcast', { event: 'TICKET_BOUGHT' }, () => {
         fetchTickets();
       })
-      .on('broadcast', { event: 'DRAW_STARTED' }, () => {
+      .on('broadcast', { event: 'DRAW_STARTED' }, ({ payload }) => {
+        if (payload.winners) setWinners(payload.winners);
+        if (payload.winningNumbers) setWinningNumbers(payload.winningNumbers);
+        setDrawStep(0);
         setSystemStatus("drawing");
         setActiveTab("draw");
+      })
+      .on('broadcast', { event: 'NEXT_STEP' }, ({ payload }) => {
+        setDrawStep(payload.step);
+        setIsDrawing(false);
+        setCurrentWinnerIndex(null);
+        setInterWinnerCountdown(null);
+        triggerNextSpin(payload.step, winningNumbers);
       })
       .subscribe();
 
@@ -247,6 +257,8 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       setCurrentWinnerIndex(null);
       setInterWinnerCountdown(null);
 
+      broadcastEvent('NEXT_STEP', { step: nextStep });
+
       setTimeout(() => {
         triggerNextSpin(nextStep, winningNumbers);
       }, 500);
@@ -302,10 +314,15 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     setCurrentWinnerIndex(null);
     setInterWinnerCountdown(null);
     
+    broadcastEvent('DRAW_STARTED', { 
+      winningNumbers: selectedWinningNumbers,
+      winners: selectedWinningTickets
+    });
+    
     setTimeout(() => {
       triggerNextSpin(0, selectedWinningNumbers);
     }, 100);
-  }, [allTicketNumbers, activeTickets, toast, triggerNextSpin, config]);
+  }, [allTicketNumbers, activeTickets, toast, triggerNextSpin, config, broadcastEvent]);
 
   // Main Event Countdown Logic
   useEffect(() => {
@@ -411,12 +428,17 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
         const totalPrizePool = allTicketNumbers.length * (config.ticket_price || 1);
         const winAmount = (totalPrizePool * (prizeInfo.percentage / 100)) || 0;
 
-        await supabase.from('raffle_winners').insert({
-          ticket_number: currentWinner.ticketNumbers[0],
-          user_id: currentWinner.userId || null,
-          username: currentWinner.name,
-          rank: rank,
-          prize_amount: winAmount
+        await fetch('/api/admin/registry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameId: game?.id || 'default',
+            userId: currentWinner.userId || null,
+            username: currentWinner.name,
+            ticketNumber: currentWinner.ticketNumbers[0],
+            rank: rank,
+            prizeAmount: winAmount
+          })
         });
       } catch (e) {
         console.warn("Save err:", e);

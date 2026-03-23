@@ -156,6 +156,8 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
       setCurrentWinnerIndex(null);
       setInterWinnerCountdown(null);
 
+      broadcastEvent('NEXT_STEP', { step: nextStep });
+
       setTimeout(() => {
         triggerNextSpin(nextStep, winningNumbers);
       }, 500);
@@ -358,6 +360,21 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
         if (payload.preGameCountdown !== undefined) setPreGameCountdown(payload.preGameCountdown);
         if (payload.status) setSystemStatus(payload.status);
       })
+      .on('broadcast', { event: 'DRAW_STARTED' }, ({ payload }) => {
+        if (payload.winners) setWinners(payload.winners);
+        if (payload.winningNumbers) setWinningNumbers(payload.winningNumbers);
+        setDrawStep(0);
+        setSystemStatus("drawing");
+        setActiveTab("draw");
+        toast({ title: "DRAW STARTED", description: "The live sequence has been initiated!" });
+      })
+      .on('broadcast', { event: 'NEXT_STEP' }, ({ payload }) => {
+        setDrawStep(payload.step);
+        setIsDrawing(false);
+        setCurrentWinnerIndex(null);
+        setInterWinnerCountdown(null);
+        triggerNextSpin(payload.step, winningNumbers);
+      })
       .subscribe();
 
     return () => {
@@ -435,13 +452,17 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
         const totalPrizePool = allTicketNumbers.length * (config.ticket_price || 1);
         const winAmount = (totalPrizePool * (prizeInfo.percentage / 100)) || 0;
 
-        await supabase.from('raffle_winners').insert({
-          ticket_number: currentWinner.ticketNumbers[0],
-          user_id: currentWinner.userId || null,
-          username: currentWinner.name,
-          rank: rank,
-          prize_amount: winAmount,
-          game_id: game?.id || 'raffle'
+        await fetch('/api/admin/registry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameId: game?.id || 'default',
+            userId: currentWinner.userId || null,
+            username: currentWinner.name,
+            ticketNumber: currentWinner.ticketNumbers[0],
+            rank: rank,
+            prizeAmount: winAmount
+          })
         });
       } catch (e) {
         console.warn("History save error:", e);

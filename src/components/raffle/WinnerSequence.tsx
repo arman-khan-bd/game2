@@ -77,7 +77,7 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
   const isCurrentUserWinner = currentUserUid && currentWinner?.userId === currentUserUid;
   
   // Find prize for this rank
-  const prizeConfig = Array.isArray(prizes) ? prizes.find(p => p.rank === currentWinnerRank) : null;
+  const prizeConfig = Array.isArray(prizes) ? prizes.find(p => p && p.rank === currentWinnerRank) : null;
   const prizeDisplay = prizeConfig 
     ? (totalPoolValue > 0 
         ? `৳ ${((totalPoolValue * (prizeConfig.percentage || 0)) / 100).toLocaleString()}` 
