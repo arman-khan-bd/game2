@@ -15,11 +15,14 @@ export default async function DynamicGameRoute({ params }: { params: Promise<{ g
   await connectMongo();
   
   // Find the exact game by URL parameter (id acts as the URL slug)
-  const gameInfo = await Game.findOne({ id: gameId }).lean();
+  const rawGameInfo = await Game.findOne({ id: gameId }).lean();
   
-  if (!gameInfo || !gameInfo.is_active) {
+  if (!rawGameInfo || !rawGameInfo.is_active) {
     return notFound();
   }
+
+  // Serialize to plain JSON to satisfy Next.js Server->Client Component props rule
+  const gameInfo = JSON.parse(JSON.stringify(rawGameInfo));
 
   return (
     <main className="min-h-screen bg-[#001f1c] text-white flex flex-col pb-24">

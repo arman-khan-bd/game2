@@ -27,6 +27,18 @@ export default function RegisterPage() {
     setIsLoading(true);
   
     try {
+      // 0. Verify the username is available in our master database
+      const checkRes = await fetch('/api/auth/check-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), email: email.trim() }),
+      });
+      const checkData = await checkRes.json();
+      
+      if (!checkRes.ok) {
+        throw new Error(checkData.error || 'This username is already taken. Please pick another one.');
+      }
+
       // 1. Sign up the user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;

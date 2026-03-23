@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import connectMongo from '@/lib/mongodb';
 import Game from '@/models/Game';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: slugId } = await params;
@@ -52,6 +54,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       winners_count: parseInt(body.winners_count) || 1,
       prizes: body.prizes,
       manual_winners: body.manual_winners,
+      photo_url: body.photo_url,
     };
 
     // Remove undefined values to avoid corrupting data

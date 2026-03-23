@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import connectMongo from "@/lib/mongodb";
 import Game from "@/models/Game";
 import { BottomNav } from "@/components/layout/BottomNav";
+import Ticket from "@/models/Ticket";
 
 export const dynamic = 'force-dynamic';
 
@@ -31,14 +32,30 @@ export default async function Home() {
     
     const games = await Game.find({ is_active: true }).sort({ name: 1 }).lean();
     
+    // Aggregation to count total tickets sold per game
+    const ticketStats = await Ticket.aggregate([
+      { $unwind: "$ticketNumbers" },
+      { $group: { _id: "$gameId", sold: { $sum: 1 }, uniqueBuyers: { $addToSet: "$userId" } } }
+    ]);
+
+    const statsMap = ticketStats.reduce((acc: any, curr: any) => {
+      acc[curr._id] = { sold: curr.sold, buyersCount: curr.uniqueBuyers.length };
+      return acc;
+    }, {});
+    
     // Serialize MongoDB specific objects for Next.js Server Components
-    dbGames = games.map((g: any) => ({
-      ...g,
-      id: g.id || g._id.toString(),
-      _id: g._id.toString(),
-      createdAt: g.createdAt ? g.createdAt.toString() : null,
-      updatedAt: g.updatedAt ? g.updatedAt.toString() : null
-    }));
+    dbGames = games.map((g: any) => {
+      const stats = statsMap[g._id.toString()] || { sold: 0, buyersCount: 0 };
+      return {
+        ...g,
+        id: g.id || g._id.toString(),
+        _id: g._id.toString(),
+        soldTickets: stats.sold,
+        buyersCount: stats.buyersCount,
+        createdAt: g.createdAt ? g.createdAt.toString() : null,
+        updatedAt: g.updatedAt ? g.updatedAt.toString() : null
+      };
+    });
   } catch (e) {
     console.error("Failed to fetch games:", e);
   }
@@ -129,15 +146,25 @@ export default async function Home() {
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  {/* Overlay Badges */}
-                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-red-600 rounded text-[8px] font-black italic uppercase shadow-lg">25000x</div>
-                  <div className="absolute top-2 right-2">
-                     <Heart className="w-4 h-4 text-white/40 fill-transparent group-hover:fill-red-500 group-hover:text-red-500 transition-colors" />
+                  {/* Real-time Data Badges */}
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-red-600 rounded text-[8px] font-black italic uppercase shadow-lg border border-red-400/50">
+                    POOL: ৳{((game.ticket_price || 0) * (game.total_tickets || 0)).toLocaleString()}
+                  </div>
+                  <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                     <span className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] font-bold text-[#facc15] shadow-lg border border-white/10 uppercase">
+                       {game.soldTickets} / {game.total_tickets} TIX
+                     </span>
+                     <span className="bg-emerald-500/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] font-bold text-white shadow-lg uppercase border border-emerald-400">
+                       {game.buyersCount} BUYERS
+                     </span>
                   </div>
                 </div>
-                <div className="p-3 bg-gradient-to-t from-black/80 to-transparent absolute bottom-0 left-0 right-0">
+                <div className="p-3 bg-gradient-to-t from-black via-black/90 to-transparent absolute bottom-0 left-0 right-0 pt-6">
                    <p className="text-xs font-black italic uppercase tracking-tighter text-white truncate">{game.name}</p>
-                   <p className="text-[9px] font-bold text-[#7da09d] uppercase">Precision Gaming</p>
+                   <div className="flex items-center justify-between mt-1">
+                     <p className="text-[9px] font-bold text-[#7da09d] uppercase">TICKET PRICE</p>
+                     <p className="text-[10px] font-black text-[#facc15] italic">৳ {(game.ticket_price || 1).toLocaleString()}</p>
+                   </div>
                 </div>
               </div>
             </Link>

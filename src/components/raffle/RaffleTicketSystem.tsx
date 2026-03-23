@@ -20,6 +20,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 export interface TicketData {
   id: string;
@@ -35,9 +36,29 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
   const { user } = useUser();
   const { toast } = useToast();
   
-  const { data: storedTickets } = useCollection('raffleTickets');
   const [activeTickets, setActiveTickets] = useState<TicketData[]>([]);
   const [lastPurchase, setLastPurchase] = useState<TicketData | null>(null);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+
+  const fetchTickets = useCallback(async () => {
+    if (!game?.id) return;
+    setIsLoadingTickets(true);
+    try {
+      const res = await fetch(`/api/tickets?gameId=${game.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setActiveTickets(data.tickets || []);
+      }
+    } catch (err) {
+      console.error('Fetch tickets error:', err);
+    } finally {
+      setIsLoadingTickets(false);
+    }
+  }, [game?.id]);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
   
   // Use passed game config or fallback
   const config = game || {
@@ -114,10 +135,15 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
       setTimeout(() => {
         triggerNextSpin(nextStep, winningNumbers);
       }, 500);
+
+      broadcastEvent('NEXT_STEP', { 
+        drawStep: nextStep, 
+        winningNumbers 
+      });
     } else {
       setSystemStatus("finished");
     }
-  }, [drawStep, winningNumbers, triggerNextSpin, config.winners_count]);
+  }, [drawStep, winningNumbers, triggerNextSpin, config.winners_count, game?.id]);
 
   const startDraw = useCallback(() => {
     const winnerLimit = config.winners_count || 1;
@@ -169,10 +195,16 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
     setCurrentWinnerIndex(null);
     setInterWinnerCountdown(null);
     
+    // Broadcast to all players via WebSocket (Supabase Realtime)
+    broadcastEvent('DRAW_STARTED', { 
+      winningNumbers: selectedWinningNumbers,
+      winners: selectedWinningTickets
+    });
+
     setTimeout(() => {
       triggerNextSpin(0, selectedWinningNumbers);
     }, 100);
-  }, [allTicketNumbers, activeTickets, toast, triggerNextSpin, config]);
+  }, [allTicketNumbers, activeTickets, toast, triggerNextSpin, config, game?.id]);
 
   // Main Event Countdown Logic
   useEffect(() => {
@@ -258,6 +290,70 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
     }
   }, [storedTickets]);
 
+  // WebSocket / Realtime Integration
+  useEffect(() => {
+    if (!game?.id) return;
+    
+    const channelName = `raffle-${game.id}`;
+    const channel = supabase.channel(channelName)
+      .on('broadcast', { event: 'DRAW_STARTED' }, ({ payload }) => {
+        setWinners(payload.winners);
+        setWinningNumbers(payload.winningNumbers);
+        setSystemStatus("drawing");
+        setDrawStep(0);
+        setActiveTab("draw");
+        
+        toast({
+          title: "LIVE DRAW INITIALIZED",
+          description: "All participants are now synchronized with the grand wheel.",
+        });
+
+        setTimeout(() => {
+          triggerNextSpin(0, payload.winningNumbers);
+        }, 500);
+      })
+      .on('broadcast', { event: 'NEXT_STEP' }, ({ payload }) => {
+        // payload includes drawStep, winningNumbers
+        setDrawStep(payload.drawStep);
+        setShowWinnerSequence(false);
+        setIsDrawing(false);
+        setCurrentWinnerIndex(null);
+        setInterWinnerCountdown(null);
+
+        setTimeout(() => {
+          triggerNextSpin(payload.drawStep, payload.winningNumbers);
+        }, 500);
+      })
+      .on('broadcast', { event: 'TICKET_BOUGHT' }, ({ payload }) => {
+        // Refetch the entire pool from DB to ensure sync
+        fetchTickets();
+        toast({
+          title: "NEW ENTRY REGISTERED",
+          description: `${payload.ticket.name} just entered the pool!`,
+        });
+      })
+      .on('broadcast', { event: 'TIMER_SYNC' }, ({ payload }) => {
+        if (payload.eventCountdown !== undefined) setEventCountdown(payload.eventCountdown);
+        if (payload.preGameCountdown !== undefined) setPreGameCountdown(payload.preGameCountdown);
+        if (payload.status) setSystemStatus(payload.status);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [game?.id, triggerNextSpin, toast]);
+
+  const broadcastEvent = async (event: string, payload: any) => {
+    if (!game?.id) return;
+    const channelName = `raffle-${game.id}`;
+    await supabase.channel(channelName).send({
+      type: 'broadcast',
+      event,
+      payload
+    });
+  };
+
   const handlePurchase = async (data: { name: string; phone: string; address: string; quantity: number }) => {
     if (systemStatus !== "buying") {
       toast({ variant: "destructive", title: "PURCHASE BLOCKED", description: "The grand pool is already closed for the draw." });
@@ -269,29 +365,39 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
     });
 
     const ticketRecord: any = {
-      id: Math.random().toString(36).substring(2, 9),
+      gameId: game?.id || 'default',
+      userId: user?.uid,
       name: data.name,
       phone: data.phone,
       address: data.address,
       ticketNumbers: newNumbers,
-      purchaseDate: new Date().toISOString(),
-      userId: user?.uid,
-      gameId: game?.id || 'default'
     };
 
     try {
-      await addDoc('raffleTickets', { ...ticketRecord, userId: user?.uid });
-      setLastPurchase(ticketRecord);
+      const res = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ticketRecord),
+      });
+      const result = await res.json();
+
+      if (!res.ok) throw new Error(result.error);
       
+      const savedTicket = result.ticket;
+      setLastPurchase(savedTicket);
+      fetchTickets(); // Sync local state
+      
+      broadcastEvent('TICKET_BOUGHT', { ticket: savedTicket });
+
       toast({
         title: "TICKETS SECURED",
         description: `Successfully generated ${data.quantity} ticket numbers for ${data.name}.`,
       });
-    } catch (e) {
+    } catch (e: any) {
       toast({
         variant: "destructive",
         title: "PURCHASE FAILED",
-        description: "System error during ticket encryption."
+        description: e.message || "System error during database registration."
       });
     }
   };
@@ -327,6 +433,25 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
   }, [winners, drawStep, config, game?.id]);
 
   const skipTimer = () => {
+    let nextStatus = systemStatus;
+    let nextEventCount = eventCountdown;
+    let nextPreCount = preGameCountdown;
+
+    if (systemStatus === "buying") {
+      nextEventCount = 0;
+      nextStatus = "pre-game";
+    } else if (systemStatus === "pre-game") {
+      nextPreCount = 0;
+    } else if (interWinnerCountdown !== null) {
+      setInterWinnerCountdown(0);
+    }
+
+    broadcastEvent('TIMER_SYNC', {
+      eventCountdown: nextEventCount,
+      preGameCountdown: nextPreCount,
+      status: nextStatus
+    });
+
     if (systemStatus === "buying") setEventCountdown(0);
     else if (systemStatus === "pre-game") setPreGameCountdown(0);
     else if (interWinnerCountdown !== null) setInterWinnerCountdown(0);
@@ -388,7 +513,27 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
                  </div>
                )}
 
-               <TicketForm onSubmit={handlePurchase} />
+               {user ? (
+                 <TicketForm onSubmit={handlePurchase} />
+               ) : (
+                 <div className="bg-[#002d28] border border-white/5 rounded-3xl p-8 text-center space-y-4 shadow-xl">
+                    <Trophy className="w-12 h-12 text-[#facc15] mx-auto opacity-50 mb-4" />
+                    <h3 className="text-xl font-black italic uppercase text-white tracking-widest">Authentication Required</h3>
+                    <p className="text-xs font-bold uppercase tracking-widest text-[#7da09d]">Please log in or register an account to secure your position in the grand draw.</p>
+                    <div className="pt-6 flex flex-col sm:flex-row justify-center gap-4">
+                      <Link href="/login" className="w-full sm:w-auto">
+                        <Button className="w-full bg-[#facc15] hover:bg-[#eab308] text-black font-black italic uppercase tracking-widest h-12 px-8 rounded-xl shadow-lg">
+                          Login
+                        </Button>
+                      </Link>
+                      <Link href="/register" className="w-full sm:w-auto">
+                        <Button variant="outline" className="w-full border-[#044e45] text-[#7da09d] hover:text-white font-black italic uppercase tracking-widest h-12 px-8 rounded-xl hover:bg-white/5">
+                          Create Account
+                        </Button>
+                      </Link>
+                    </div>
+                 </div>
+               )}
                
                {lastPurchase && (
                  <div className="animate-in zoom-in-95 duration-500">
@@ -521,9 +666,22 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
             </CardContent>
           </Card>
 
-          <Card className="bg-[#002d28] border-white/5 rounded-3xl overflow-hidden">
-             <div className="p-6">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-[#7da09d] mb-4">Recent Participants</h3>
+          <Card className="bg-[#002d28] border-white/5 rounded-3xl overflow-hidden shadow-2xl relative group">
+             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
+             <div className="p-6 relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7da09d] flex items-center gap-2">
+                    LIVE TICKET BUYERS
+                    <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                  </h3>
+                  <div className="flex -space-x-2">
+                     {activeTickets.slice(0, 3).map((t, i) => (
+                       <div key={i} className="w-5 h-5 rounded-full bg-[#001f1c] border border-emerald-500/30 flex items-center justify-center text-[6px] font-black text-[#facc15] shadow-lg">
+                         {t.name.charAt(0)}
+                       </div>
+                     ))}
+                  </div>
+                </div>
                 <div className="space-y-3">
                    {activeTickets.length === 0 ? (
                      <p className="text-xs font-bold text-white/20 uppercase italic py-8 text-center">Waiting for entrants...</p>

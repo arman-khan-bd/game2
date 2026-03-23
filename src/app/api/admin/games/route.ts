@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import connectMongo from '@/lib/mongodb';
 import Game from '@/models/Game';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     await connectMongo();
@@ -63,7 +65,8 @@ export async function POST(req: Request) {
       is_bot_play: !!is_bot_play,
       is_active: is_active ?? true,
       winners_count: parseInt(winners_count) || 1,
-      prizes: prizes || []
+      prizes: prizes || [],
+      photo_url: body.photo_url || ''
     });
 
     return NextResponse.json({ game: newGame, message: "Game generated successfully" }, { status: 201 });

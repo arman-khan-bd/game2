@@ -42,7 +42,7 @@ export default function GamesManager() {
   const fetchGames = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/games');
+      const res = await fetch('/api/admin/games', { cache: 'no-store' });
       const data = await res.json();
       
       if (res.ok) {

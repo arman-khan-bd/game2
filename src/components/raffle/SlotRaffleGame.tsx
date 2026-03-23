@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import Link from "next/link";
 
 export interface TicketData {
   id: string;
@@ -407,7 +408,27 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
                  </div>
                )}
 
-               <TicketForm onSubmit={handlePurchase} />
+               {user ? (
+                 <TicketForm onSubmit={handlePurchase} />
+               ) : (
+                 <div className="bg-[#002d28] border border-white/5 rounded-3xl p-8 text-center space-y-4 shadow-xl">
+                    <Trophy className="w-12 h-12 text-[#facc15] mx-auto opacity-50 mb-4" />
+                    <h3 className="text-xl font-black italic uppercase text-white tracking-widest">Authentication Required</h3>
+                    <p className="text-xs font-bold uppercase tracking-widest text-[#7da09d]">Please log in or register an account to secure your position in the grand draw.</p>
+                    <div className="pt-6 flex flex-col sm:flex-row justify-center gap-4">
+                      <Link href="/login" className="w-full sm:w-auto">
+                        <Button className="w-full bg-[#facc15] hover:bg-[#eab308] text-black font-black italic uppercase tracking-widest h-12 px-8 rounded-xl shadow-lg">
+                          Login
+                        </Button>
+                      </Link>
+                      <Link href="/register" className="w-full sm:w-auto">
+                        <Button variant="outline" className="w-full border-[#044e45] text-[#7da09d] hover:text-white font-black italic uppercase tracking-widest h-12 px-8 rounded-xl hover:bg-white/5">
+                          Create Account
+                        </Button>
+                      </Link>
+                    </div>
+                 </div>
+               )}
                
                {lastPurchase && (
                  <div className="animate-in zoom-in-95 duration-500">
