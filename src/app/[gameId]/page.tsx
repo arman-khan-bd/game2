@@ -36,6 +36,33 @@ export default async function DynamicGameRoute({ params }: { params: Promise<{ g
           <p className="text-sm font-bold text-[#7da09d] uppercase tracking-widest mt-2 max-w-2xl">
             {gameInfo.instructions || "Welcome to the game. Place your bets and wait for the system to finalize the sequence."}
           </p>
+
+          <div className="mt-8 grid grid-cols-2 lg:grid-cols-6 gap-3">
+             <div className="bg-[#002d28] border border-white/5 p-3 rounded-2xl flex flex-col justify-center shadow-lg relative overflow-hidden group hover:border-[#facc15]/50 transition-colors">
+                <span className="text-[8px] font-black uppercase text-[#7da09d] tracking-widest mb-1 flex items-center justify-between">Ticket Price</span>
+                <span className="text-2xl font-black italic text-[#facc15]">৳{gameInfo.ticket_price || 1}</span>
+             </div>
+             <div className="bg-[#002d28] border border-white/5 p-3 rounded-2xl flex flex-col justify-center shadow-lg hover:border-white/20 transition-colors">
+                <span className="text-[8px] font-black uppercase text-[#7da09d] tracking-widest mb-1">Max Capacity</span>
+                <span className="text-2xl font-black italic text-white">{gameInfo.total_tickets || 100} <span className="text-[10px] text-white/50 not-italic uppercase tracking-widest">TKS</span></span>
+             </div>
+             <div className="bg-[#002d28] border border-white/5 p-3 rounded-2xl flex flex-col justify-center shadow-lg hover:border-white/20 transition-colors">
+                <span className="text-[8px] font-black uppercase text-[#7da09d] tracking-widest mb-1">Total Winners</span>
+                <span className="text-2xl font-black italic text-white">{gameInfo.winners_count || 1} <span className="text-[10px] text-white/50 not-italic uppercase tracking-widest">WINNERS</span></span>
+             </div>
+             <div className="bg-[#002d28] border border-white/5 p-3 rounded-2xl flex flex-col justify-center shadow-lg hover:border-white/20 transition-colors">
+                <span className="text-[8px] font-black uppercase text-[#7da09d] tracking-widest mb-1">Auto-Play Matrix</span>
+                <span className="text-2xl font-black italic text-emerald-400">{gameInfo.auto_play_hours || 24} <span className="text-[10px] text-emerald-400/50 not-italic uppercase tracking-widest">HRS</span></span>
+             </div>
+             <div className="bg-[#002d28] border border-white/5 p-3 rounded-2xl flex flex-col justify-center shadow-lg hover:border-white/20 transition-colors">
+                <span className="text-[8px] font-black uppercase text-[#7da09d] tracking-widest mb-1">Bot Network</span>
+                <span className={`text-lg font-black italic uppercase ${gameInfo.is_bot_play ? 'text-blue-400' : 'text-white/30'}`}>{gameInfo.is_bot_play ? 'Engaged' : 'Offline'}</span>
+             </div>
+             <div className="bg-[#002d28] border border-[#facc15]/20 p-3 rounded-2xl flex flex-col justify-center shadow-[0_0_20px_rgba(250,204,21,0.05)] hover:border-[#facc15]/50 transition-colors">
+                <span className="text-[8px] font-black uppercase text-[#facc15] tracking-widest mb-1">Prize Scaling Matrix</span>
+                <span className="text-[10px] font-bold text-white uppercase tracking-widest leading-tight opacity-80 mt-1">Pool grows based on net ticket revenue</span>
+             </div>
+          </div>
         </div>
 
         {/* Dynamic Engine Router based on game_type */}

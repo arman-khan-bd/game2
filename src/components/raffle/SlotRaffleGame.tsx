@@ -337,7 +337,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       try {
         const rank = (config.winners_count || 1) - drawStep;
         const prizeInfo = config.prizes?.find((p: any) => p.rank === rank) || { percentage: 0 };
-        const totalPrizePool = (config.total_tickets || 100) * (config.ticket_price || 1);
+        const totalPrizePool = allTicketNumbers.length * (config.ticket_price || 1);
         const winAmount = (totalPrizePool * (prizeInfo.percentage / 100)) || 0;
 
         await supabase.from('raffle_winners').insert({
@@ -355,7 +355,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     if (drawStep < (config.winners_count || 1) - 1) {
       setInterWinnerCountdown(300); // Wait 5 mins for next spin
     }
-  }, [winners, drawStep, config]);
+  }, [winners, drawStep, config, allTicketNumbers.length]);
 
   const skipTimer = () => {
     if (systemStatus === "buying") setEventCountdown(0);
@@ -545,7 +545,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
             <CardContent className="p-0">
                <div className="divide-y divide-white/5">
                   {(() => {
-                    const totalPrizePool = (config.total_tickets || 100) * (config.ticket_price || 1);
+                    const totalPrizePool = allTicketNumbers.length * (config.ticket_price || 1);
                     return Array.from({ length: config.winners_count || 1 }).map((_, i) => {
                       const rank = i + 1;
                       const prizeObj = config.prizes?.find((p: any) => p.rank === rank) || { percentage: 0 };
