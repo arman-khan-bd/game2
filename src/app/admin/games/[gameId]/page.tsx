@@ -242,6 +242,7 @@ export default function GameConfigPage() {
         is_active: formData.is_active,
         photo_url: formData.photo_url,
         instructions: formData.instructions,
+        draw_date: formData.draw_date,
         updated_at: new Date().toISOString()
       };
 
@@ -259,6 +260,17 @@ export default function GameConfigPage() {
       }
 
       setGame(result.game);
+      
+      // Broadcast the fresh parameters to all live clients
+      await supabase.channel(`raffle-${gameId}`).send({
+        type: 'broadcast',
+        event: 'TIMER_SYNC',
+        payload: {
+          drawDate: formData.draw_date,
+          status: formData.is_active ? 'buying' : 'finished'
+        }
+      });
+
       toast({ title: "CORE SYNCED", description: "Operational parameters are now live in production." });
       
     } catch (err: any) {
@@ -446,28 +458,43 @@ export default function GameConfigPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6 pt-6 border-t border-white/5">
                     <div className="space-y-3">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Clock className="w-3 h-3" /> Auto-Play Frequency (Hours)
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-[#facc15] flex items-center gap-2">
+                        <Clock className="w-3 h-3" /> Targeted Draw Date & Time (Global Sync)
                       </Label>
                       <input 
-                        type="number"
-                        value={formData.auto_play_hours} 
-                        onChange={(e) => setFormData({...formData, auto_play_hours: e.target.value})}
-                        className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                        type="datetime-local"
+                        value={formData.draw_date ? new Date(new Date(formData.draw_date).getTime() - (new Date(formData.draw_date).getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''} 
+                        onChange={(e) => setFormData({...formData, draw_date: e.target.value})}
+                        className="flex h-12 w-full rounded-md border border-[#facc15]/30 bg-[#facc15]/5 px-4 font-black text-[#facc15] focus:outline-none focus:ring-1 focus:ring-[#facc15] shadow-[0_0_15px_rgba(250,204,21,0.05)]"
                       />
+                      <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-tighter opacity-60">Setting this will synchronize the countdown for all live players instantly.</p>
                     </div>
-                    <div className="space-y-3">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Clock className="w-3 h-3" /> Next Winner Interval (Minutes)
-                      </Label>
-                      <input 
-                        type="number"
-                        value={formData.next_winner_minutes} 
-                        onChange={(e) => setFormData({...formData, next_winner_minutes: e.target.value})}
-                        className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-3">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                          <Clock className="w-3 h-3" /> Auto-Play Frequency (Hours)
+                        </Label>
+                        <input 
+                          type="number"
+                          value={formData.auto_play_hours} 
+                          onChange={(e) => setFormData({...formData, auto_play_hours: e.target.value})}
+                          className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                          <Clock className="w-3 h-3" /> Next Winner Interval (Minutes)
+                        </Label>
+                        <input 
+                          type="number"
+                          value={formData.next_winner_minutes} 
+                          onChange={(e) => setFormData({...formData, next_winner_minutes: e.target.value})}
+                          className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
                     </div>
                   </div>
 

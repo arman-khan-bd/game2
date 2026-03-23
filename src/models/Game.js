@@ -59,6 +59,9 @@ const GameSchema = new mongoose.Schema({
   instructions: {
     type: String,
     default: "Welcome to the game. Place your bets and wait for the system to finalize the sequence.",
+  },
+  draw_date: {
+    type: Date,
   }
 }, {
   timestamps: true

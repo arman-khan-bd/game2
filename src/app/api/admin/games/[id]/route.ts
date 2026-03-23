@@ -57,7 +57,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
                 : [],
       manual_winners: body.manual_winners,
       photo_url: body.photo_url || '',
-      instructions: body.instructions
+      instructions: body.instructions,
+      draw_date: body.draw_date
     };
 
     // Remove undefined values to avoid corrupting data

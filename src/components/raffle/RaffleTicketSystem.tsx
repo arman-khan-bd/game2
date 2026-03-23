@@ -82,9 +82,55 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
   // System State
   const [activeTab, setActiveTab] = useState("buy");
   const [systemStatus, setSystemStatus] = useState<"buying" | "pre-game" | "drawing" | "finished">("buying");
-  const [eventCountdown, setEventCountdown] = useState<number>((game?.auto_play_hours || 24) * 3600); // Dynamic from DB
-  const [preGameCountdown, setPreGameCountdown] = useState<number | null>(null);
+  
+  // Synced Timer
+  const [targetDrawDate, setTargetDrawDate] = useState<Date | null>(game?.draw_date ? new Date(game.draw_date) : null);
+  const [eventCountdown, setEventCountdown] = useState<number>(0);
+  const [preGameCountdown, setPreGameCountdown] = useState<number|null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+
+  useEffect(() => {
+    if (!targetDrawDate || systemStatus !== "buying") return;
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const diff = Math.floor((targetDrawDate.getTime() - now) / 1000);
+      
+      if (diff <= 0) {
+        setEventCountdown(0);
+        setSystemStatus("pre-game");
+        setActiveTab("draw");
+        setPreGameCountdown(5);
+      } else {
+        setEventCountdown(diff);
+      }
+    };
+
+    updateTimer();
+    const timerId = setInterval(updateTimer, 1000);
+    return () => clearInterval(timerId);
+  }, [targetDrawDate, systemStatus]);
+
+  // Fallback for auto-play hours if draw_date is not set
+  useEffect(() => {
+    if (!targetDrawDate && systemStatus === "buying") {
+      const initialSeconds = (config.auto_play_hours || 24) * 3600;
+      setEventCountdown(initialSeconds);
+      
+      const timerId = setInterval(() => {
+        setEventCountdown(prev => {
+          if (prev <= 1) {
+            setSystemStatus("pre-game");
+            setActiveTab("draw");
+            setPreGameCountdown(5);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timerId);
+    }
+  }, [targetDrawDate, systemStatus, config.auto_play_hours]);
   
   useEffect(() => {
     if (user) {
@@ -357,6 +403,9 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
         });
       })
       .on('broadcast', { event: 'TIMER_SYNC' }, ({ payload }) => {
+        if (payload.drawDate) {
+          setTargetDrawDate(new Date(payload.drawDate));
+        }
         if (payload.eventCountdown !== undefined) setEventCountdown(payload.eventCountdown);
         if (payload.preGameCountdown !== undefined) setPreGameCountdown(payload.preGameCountdown);
         if (payload.status) setSystemStatus(payload.status);
