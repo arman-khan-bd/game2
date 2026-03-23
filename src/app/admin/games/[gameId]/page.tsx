@@ -479,17 +479,6 @@ export default function GameConfigPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-3">
                         <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                          <Clock className="w-3 h-3" /> Auto-Play Frequency (Hours)
-                        </Label>
-                        <input 
-                          type="number"
-                          value={formData.auto_play_hours} 
-                          onChange={(e) => setFormData({...formData, auto_play_hours: e.target.value})}
-                          className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                           <Clock className="w-3 h-3" /> Next Winner Interval (Minutes)
                         </Label>
                         <input 

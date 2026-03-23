@@ -8,7 +8,8 @@ import {
   Settings2, 
   Database,
   Plus,
-  Trash2
+  Trash2,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -197,13 +198,14 @@ export default function GamesManager() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Auto-Play (Hours)</Label>
-                  <Input type="number" required value={newGame.auto_play_hours} onChange={e => setNewGame({...newGame, auto_play_hours: Number(e.target.value)})} className="bg-white/5 border-white/10" />
+                  <Label className="text-[#facc15] font-black uppercase text-[10px]">Play Date & Time (Selected Time)</Label>
+                  <Input type="datetime-local" value={newGame.draw_date || ''} onChange={e => setNewGame({...newGame, draw_date: e.target.value})} className="bg-[#facc15]/10 border-[#facc15]/30 text-[#facc15] font-black" />
+                  <p className="text-[8px] text-muted-foreground uppercase">The game will start exactly at this time for all users.</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Next Winner (Min)</Label>
+                  <Label>Next Winner Interval (Min)</Label>
                   <Input type="number" required value={newGame.next_winner_minutes} onChange={e => setNewGame({...newGame, next_winner_minutes: Number(e.target.value)})} className="bg-white/5 border-white/10" />
                 </div>
               </div>
@@ -223,10 +225,7 @@ export default function GamesManager() {
                 <Input placeholder="https://image-link.com/..." value={newGame.photo_url} onChange={e => setNewGame({...newGame, photo_url: e.target.value})} className="bg-white/5 border-white/10" />
               </div>
               
-              <div className="space-y-2">
-                <Label>Targeted Draw Sync (Optional)</Label>
-                <Input type="datetime-local" value={newGame.draw_date || ''} onChange={e => setNewGame({...newGame, draw_date: e.target.value})} className="bg-white/5 border-white/10" />
-              </div>
+
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
