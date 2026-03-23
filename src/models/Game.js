@@ -64,7 +64,8 @@ const GameSchema = new mongoose.Schema({
     type: Date,
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  strict: false
 });
 
 export default mongoose.models.Game || mongoose.model('Game', GameSchema);

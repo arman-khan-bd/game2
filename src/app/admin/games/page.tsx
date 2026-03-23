@@ -325,7 +325,7 @@ export default function GamesManager() {
                     <Clock className="w-2 h-2" /> Global Draw Sync
                   </p>
                   <p className="text-[10px] font-black text-[#facc15]/90">
-                    {game.draw_date ? new Date(game.draw_date).toLocaleString() : 'AUTO-PLAY MODE'}
+                    {game && game.draw_date ? new Date(game.draw_date).toLocaleString() : 'AUTO-PLAY MODE'}
                   </p>
                 </div>
               </div>

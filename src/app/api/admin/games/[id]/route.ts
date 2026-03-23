@@ -72,11 +72,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(slugId);
     const query = isObjectId ? { $or: [{ id: slugId }, { _id: slugId }] } : { id: slugId };
 
-    const updatedGame = await Game.findOneAndUpdate(
+    // Bypassing Mongoose strictness by using collection directly
+    const result = await Game.collection.findOneAndUpdate(
       query,
       { $set: updatePayload },
-      { new: true, runValidators: true }
+      { returnDocument: 'after' }
     );
+
+    const updatedGame = result.value || result;
 
     console.log('--- SAVED GAME IN MONGODB ---', updatedGame?.draw_date);
 

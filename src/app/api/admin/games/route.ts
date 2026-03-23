@@ -71,7 +71,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'A game with this ID already exists' }, { status: 409 });
     }
 
-    const newGame = await Game.create({
+    const payload = {
       id: id.toLowerCase().replace(/\s+/g, '-'),
       name,
       game_type: game_type || 'raffle',
@@ -85,8 +85,13 @@ export async function POST(req: Request) {
       prizes: prizes || [],
       photo_url: body.photo_url || '',
       instructions: instructions || "Welcome to the game. Place your bets and wait for the system to finalize the sequence.",
-      draw_date: draw_date ? new Date(draw_date) : null
-    });
+      draw_date: draw_date ? new Date(draw_date) : null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const newGameResult = await Game.collection.insertOne(payload);
+    const newGame = { ...payload, _id: newGameResult.insertedId };
 
     console.log('--- CREATED GAME ---', newGame.draw_date);
 

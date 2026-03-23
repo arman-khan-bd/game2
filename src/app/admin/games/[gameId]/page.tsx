@@ -264,6 +264,11 @@ export default function GameConfigPage() {
       }
 
       setGame(result.game);
+      setFormData((prev: any) => ({
+        ...prev,
+        ...result.game,
+        draw_date: result.game.draw_date
+      }));
       
       // Broadcast the fresh parameters to all live clients
       await supabase.channel(`raffle-${gameId}`).send({
@@ -469,7 +474,7 @@ export default function GameConfigPage() {
                       </Label>
                       <input 
                         type="datetime-local"
-                        value={formData.draw_date ? (typeof formData.draw_date === 'string' ? formData.draw_date : new Date(new Date(formData.draw_date).getTime() - (new Date(formData.draw_date).getTimezoneOffset() * 60000)).toISOString().slice(0, 16)) : ''} 
+                        value={formData.draw_date ? new Date(formData.draw_date).toISOString().slice(0, 16) : ''} 
                         onChange={(e) => setFormData({...formData, draw_date: e.target.value})}
                         className="flex h-12 w-full rounded-md border border-[#facc15]/30 bg-[#facc15]/5 px-4 font-black text-[#facc15] focus:outline-none focus:ring-1 focus:ring-[#facc15] shadow-[0_0_15px_rgba(250,204,21,0.05)]"
                       />
