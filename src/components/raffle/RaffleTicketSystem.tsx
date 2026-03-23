@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles, Play, Ticket as TicketIcon, Trophy, Loader2, Timer, Download, FastForward, Clock } from "lucide-react";
-import { useUser, addDoc, useCollection } from "@/firebase";
+import { useUser, addDoc, useCollection, useDoc } from "@/firebase";
 import { supabase } from "@/lib/supabase";
 import {
   Dialog,
@@ -34,6 +34,7 @@ export interface TicketData {
 
 export const RaffleTicketSystem = ({ game }: { game?: any }) => {
   const { user } = useUser();
+  const { data: profile } = useDoc(user ? `userProfiles/${user.uid}` : null);
   const { toast } = useToast();
   
   const [activeTickets, setActiveTickets] = useState<TicketData[]>([]);
@@ -402,6 +403,18 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
       return Math.floor(100000000000 + Math.random() * 900000000000).toString();
     });
 
+    const ticketPrice = game?.ticket_price || 1;
+    const totalCost = data.quantity * ticketPrice;
+
+    if ((profile?.balance || 0) < totalCost) {
+      toast({
+        variant: "destructive",
+        title: "INSUFFICIENT BALANCE",
+        description: `Your balance (৳${profile?.balance || 0}) is not enough to cover the ৳${totalCost} fee.`
+      });
+      return;
+    }
+
     const ticketRecord: any = {
       gameId: game?.id || 'default',
       userId: user?.uid,
@@ -565,7 +578,7 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
                )}
 
                {user ? (
-                 <TicketForm onSubmit={handlePurchase} ticketPrice={config.ticket_price} />
+                 <TicketForm onSubmit={handlePurchase} ticketPrice={config.ticket_price} balance={profile?.balance || 0} />
                ) : (
                  <div className="bg-[#002d28] border border-white/5 rounded-3xl p-8 text-center space-y-4 shadow-xl">
                     <Trophy className="w-12 h-12 text-[#facc15] mx-auto opacity-50 mb-4" />

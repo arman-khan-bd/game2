@@ -5,11 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { User, Phone, MapPin, Ticket, Plus, Minus, UserCheck, Users } from "lucide-react";
+import { User, Phone, MapPin, Ticket, Plus, Minus, UserCheck, Users, Wallet } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface TicketFormProps {
   onSubmit: (data: { name: string; phone: string; address: string; quantity: number }) => void;
   ticketPrice?: number;
+  balance?: number;
 }
 
 const PRE_USERS = [
@@ -19,7 +21,7 @@ const PRE_USERS = [
   { name: "Abir Khan", phone: "01655443322", address: "Rajshahi City" },
 ];
 
-export const TicketForm: React.FC<TicketFormProps> = ({ onSubmit, ticketPrice = 1 }) => {
+export const TicketForm: React.FC<TicketFormProps> = ({ onSubmit, ticketPrice = 1, balance = 0 }) => {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -143,10 +145,26 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onSubmit, ticketPrice = 
                    </Button>
                 </div>
              </div>
-             
-             <Button className="flex-1 h-16 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-black italic text-xl uppercase tracking-tighter shadow-xl shadow-emerald-500/10">
-                PURCHASE TICKETS (৳{(quantity * ticketPrice).toLocaleString()})
-             </Button>
+
+             <div className="flex-1 space-y-2">
+                <div className="flex justify-between items-center px-1">
+                  <Label className="text-[10px] font-black uppercase text-[#7da09d] tracking-widest">Transaction Authorization</Label>
+                  <span className="text-[10px] font-black text-[#facc15] uppercase tracking-widest flex items-center gap-1.5">
+                    <Wallet className="w-3 h-3" /> ৳{balance.toLocaleString()}
+                  </span>
+                </div>
+                <Button 
+                  disabled={balance < (quantity * ticketPrice)}
+                  className={cn(
+                    "w-full h-16 rounded-2xl font-black italic text-xl uppercase tracking-tighter shadow-xl transition-all",
+                    balance < (quantity * ticketPrice) 
+                      ? "bg-red-500/20 text-red-500 border border-red-500/30 cursor-not-allowed" 
+                      : "bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-500/10"
+                  )}
+                >
+                  {balance < (quantity * ticketPrice) ? "INSUFFICIENT BALANCE" : `PURCHASE TICKETS (৳${(quantity * ticketPrice).toLocaleString()})`}
+                </Button>
+             </div>
           </div>
         </form>
       </CardContent>

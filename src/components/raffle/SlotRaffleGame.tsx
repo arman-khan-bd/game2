@@ -13,7 +13,7 @@ import {
   Loader2, Timer, Download, FastForward, Clock,
   RefreshCcw, AlertCircle
 } from "lucide-react";
-import { useUser, addDoc, useCollection } from "@/firebase";
+import { useUser, addDoc, useCollection, useDoc } from "@/firebase";
 import { supabase } from "@/lib/supabase";
 import {
   Dialog,
@@ -121,6 +121,7 @@ const SlotReelEngine = ({
 export const SlotRaffleGame = ({ game }: { game?: any }) => {
   const { user } = useUser();
   const { toast } = useToast();
+  const { data: profile } = useDoc(user ? `userProfiles/${user.uid}` : null);
   const [isAdmin, setIsAdmin] = useState(false);
   
   const [activeTickets, setActiveTickets] = useState<TicketData[]>([]);
@@ -148,6 +149,14 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   const [eventCountdown, setEventCountdown] = useState<number>((game?.auto_play_hours || 24) * 3600); // 24h default from DB
   const [preGameCountdown, setPreGameCountdown] = useState<number|null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // Drawing States
+  const [winners, setWinners] = useState<TicketData[]>([]);
+  const [winningNumbers, setWinningNumbers] = useState<string[]>([]);
+  const [currentWinnerIndex, setCurrentWinnerIndex] = useState<number|null>(null);
+  const [showWinnerSequence, setShowWinnerSequence] = useState(false);
+  const [drawStep, setDrawStep] = useState(0); 
+  const [interWinnerCountdown, setInterWinnerCountdown] = useState<number|null>(null);
 
   const fetchTickets = useCallback(async () => {
     if (!game?.id) return;
@@ -203,15 +212,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [game?.id, fetchTickets]);
-  
-  // Drawing States
-  const [winners, setWinners] = useState<TicketData[]>([]);
-  const [winningNumbers, setWinningNumbers] = useState<string[]>([]);
-  const [currentWinnerIndex, setCurrentWinnerIndex] = useState<number|null>(null);
-  const [showWinnerSequence, setShowWinnerSequence] = useState(false);
-  const [drawStep, setDrawStep] = useState(0); 
-  const [interWinnerCountdown, setInterWinnerCountdown] = useState<number|null>(null);
+  }, [game?.id, fetchTickets, winningNumbers]);
 
   // UI Dialog States
   const [selectedTicketForDownload, setSelectedTicketForDownload] = useState<TicketData|null>(null);
@@ -265,7 +266,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     } else {
       setSystemStatus("finished");
     }
-  }, [drawStep, winningNumbers, triggerNextSpin, config.winners_count]);
+  }, [drawStep, winningNumbers, triggerNextSpin, config.winners_count, broadcastEvent]);
 
   const startDraw = useCallback(() => {
     const winnerLimit = config.winners_count || 1;
@@ -284,7 +285,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     const selectedWinningTickets: TicketData[] = [];
 
     for (let i = 0; i < winnerLimit; i++) {
-      const rank = winnerLimit - i; // Handle ranks from lowest prize to grand champion or vice versa
+      const rank = winnerLimit - i; 
       const manualTicketNumber = config.manual_winners?.[rank.toString()];
       
       let number;
@@ -372,8 +373,20 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       return;
     }
 
+    const ticketPrice = config.ticket_price || 1;
+    const totalCost = data.quantity * ticketPrice;
+
+    if ((profile?.balance || 0) < totalCost) {
+      toast({
+        variant: "destructive",
+        title: "INSUFFICIENT BALANCE",
+        description: `Your balance (৳${profile?.balance || 0}) is not enough to cover the ৳${totalCost} fee.`
+      });
+      return;
+    }
+
     const newNumbers = Array.from({ length: data.quantity }).map(() => {
-      return Math.floor(100000000 + Math.random() * 900000000).toString(); // Generating solid 9-digit tickets
+      return Math.floor(100000000 + Math.random() * 900000000).toString();
     });
 
     const ticketRecord: any = {
@@ -399,12 +412,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       setLastPurchase(savedTicket);
       fetchTickets(); // Sync local state
       
-      // Notify other clients via Supabase if needed (optional here since we focus on DB storage)
-      await supabase.channel(`raffle-${game.id}`).send({
-        type: 'broadcast',
-        event: 'TICKET_BOUGHT',
-        payload: { ticket: savedTicket }
-      });
+      broadcastEvent('TICKET_BOUGHT', { ticket: savedTicket });
 
       toast({ title: "TICKETS SECURED", description: `You generated ${data.quantity} tickets.` });
     } catch (e: any) {
@@ -487,6 +495,11 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     setIsDownloadDialogOpen(true);
   };
 
+  const openDialogIfUser = (t: TicketData) => {
+    setSelectedTicketForDownload(t);
+    setIsDownloadDialogOpen(true);
+  }
+
   return (
     <div className="space-y-8 pb-20 max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       
@@ -542,7 +555,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
                )}
 
                {user ? (
-                 <TicketForm onSubmit={handlePurchase} ticketPrice={config.ticket_price} />
+                 <TicketForm onSubmit={handlePurchase} ticketPrice={config.ticket_price} balance={profile?.balance || 0} />
                ) : (
                  <div className="bg-[#002d28] border border-white/5 rounded-3xl p-8 text-center space-y-4 shadow-xl">
                     <Trophy className="w-12 h-12 text-[#facc15] mx-auto opacity-50 mb-4" />
@@ -782,10 +795,4 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       </Dialog>
     </div>
   );
-
-  function openDialogIfUser(t: TicketData) {
-    // Optionally restrict download viewing to ONLY admins or the ticket creator, or let public see.
-    setSelectedTicketForDownload(t);
-    setIsDownloadDialogOpen(true);
-  }
 };

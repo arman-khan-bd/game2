@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import connectMongo from '@/lib/mongodb';
 import Ticket from '@/models/Ticket';
+import Profile from '@/models/Profile';
+import Game from '@/models/Game';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +42,34 @@ export async function POST(req: Request) {
     }
 
     await connectMongo();
+
+    // 1. Fetch Game and Price
+    const game = await Game.findOne({ id: gameId });
+    const price = game?.ticket_price || 1; 
+    const totalCost = ticketNumbers.length * price;
+
+    // 2. Atomic Balance Check and Deduction
+    const profile = await Profile.findOne({ firebaseUid: userId });
+    if (!profile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+    }
+
+    if (profile.balance < totalCost) {
+      return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 });
+    }
+
+    // 3. Deduct Balance
+    await Profile.findOneAndUpdate(
+      { firebaseUid: userId },
+      { 
+        $inc: { 
+          balance: -totalCost,
+          total_wagered: totalCost 
+        } 
+      }
+    );
+
+    // 4. Create Ticket Record
     const newTicket = await Ticket.create({
       gameId,
       userId,
@@ -52,7 +82,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ 
       ticket: newTicket, 
-      message: 'Tickets successfully registered in database' 
+      balance: profile.balance - totalCost,
+      message: 'Purchase successful! Tickets registered.' 
     }, { status: 201 });
 
   } catch (err) {
