@@ -4,21 +4,36 @@ import Game from '@/models/Game';
 
 export const dynamic = 'force-dynamic';
 
+import Ticket from '@/models/Ticket';
+
 export async function GET() {
   try {
     await connectMongo();
     
-    // Fetch games logic - we sort by name intentionally
     const games = await Game.find({}).sort({ name: 1 });
     
-    // Format them mapping _id -> _id_mongo and id -> slug for UI compatibility
-    const formattedGames = games.map(g => {
+    // Enrich with ticket stats
+    const enrichedGames = await Promise.all(games.map(async (g) => {
        const gameObj = g.toObject();
        gameObj._id_mongo = gameObj._id.toString();
-       return gameObj;
-    });
+       
+       const stats = await Ticket.aggregate([
+         { $match: { gameId: g.id, status: 'active' } },
+         { $group: {
+             _id: "$gameId",
+             soldTickets: { $sum: { $size: "$ticketNumbers" } },
+             uniqueBuyers: { $addToSet: "$userId" }
+           }
+         }
+       ]);
 
-    return NextResponse.json({ games: formattedGames }, { status: 200 });
+       gameObj.soldTickets = stats[0]?.soldTickets || 0;
+       gameObj.buyersCount = stats[0]?.uniqueBuyers?.length || 0;
+       
+       return gameObj;
+    }));
+
+    return NextResponse.json({ games: enrichedGames }, { status: 200 });
   } catch (error: any) {
     console.error('Fetch Games Error:', error);
     return NextResponse.json({ error: error.message || 'Failed to fetch games' }, { status: 500 });

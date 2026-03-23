@@ -348,6 +348,33 @@ export default function GameConfigPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* TICKET SALES SUMMARY CARD */}
+              <Card className="bg-card/40 backdrop-blur-xl border-white/5 overflow-hidden shadow-2xl">
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex flex-col gap-1">
+                     <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Total Sold</span>
+                     <div className="flex items-end justify-between">
+                        <span className="text-3xl font-black italic text-white tracking-tighter">
+                          {allTickets.reduce((acc, t) => acc + (t.ticketNumbers?.length || 0), 0)}
+                        </span>
+                        <span className="text-[10px] font-bold text-primary uppercase">Tickets</span>
+                     </div>
+                  </div>
+                  
+                  <div className="h-px bg-white/5 w-full" />
+
+                  <div className="flex flex-col gap-1">
+                     <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Active Revenue</span>
+                     <div className="flex items-end justify-between">
+                        <span className="text-3xl font-black italic text-[#facc15] tracking-tighter">
+                          ৳ {(allTickets.reduce((acc, t) => acc + (t.ticketNumbers?.length || 0), 0) * (formData.ticket_price || 1)).toLocaleString()}
+                        </span>
+                        <span className="text-[10px] font-bold text-[#facc15] uppercase">BDT</span>
+                     </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             <div className="lg:col-span-2 space-y-6">
@@ -599,7 +626,9 @@ export default function GameConfigPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-white/5 bg-white/5 font-black uppercase tracking-widest text-[8px] text-muted-foreground">
+                    <th className="px-6 py-4 text-center">Date</th>
                     <th className="px-6 py-4">Participant</th>
+                    <th className="px-6 py-4 text-center">Status</th>
                     <th className="px-6 py-4">Contact & Location</th>
                     <th className="px-6 py-4">Ticket Multi-Select</th>
                     <th className="px-6 py-4 text-center">Pin Assignment</th>
@@ -611,11 +640,27 @@ export default function GameConfigPage() {
                     t.phone?.includes(ticketSearch)
                   ).map((ticket, idx) => (
                     <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col items-center">
+                          <span className="text-[10px] font-black text-white/50">{new Date(ticket.purchaseDate || ticket.createdAt).toLocaleDateString()}</span>
+                          <span className="text-[8px] font-bold text-white/30 uppercase">{new Date(ticket.purchaseDate || ticket.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 text-white">
                         <div className="flex flex-col">
                           <span className="text-sm font-black italic">{ticket.name}</span>
                           <span className="text-[9px] font-mono text-muted-foreground uppercase opacity-50">{ticket.id || ticket._id}</span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[8px] font-black uppercase",
+                          ticket.status === 'active' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                          ticket.status === 'winning' ? "bg-[#facc15]/10 text-[#facc15] border border-[#facc15]/20" :
+                          "bg-red-500/10 text-red-500 border border-red-500/20"
+                        )}>
+                          {ticket.status || 'Active'}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">

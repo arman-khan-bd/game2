@@ -314,6 +314,17 @@ export default function GamesManager() {
                   <p className="text-sm font-black text-white">{game.auto_play_hours}h / {game.next_winner_minutes}m</p>
                 </div>
               </div>
+
+              <div className="flex items-center justify-between p-3 rounded-xl bg-black/40 border border-white/5">
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-muted-foreground uppercase">Live Entry Stats</span>
+                  <span className="text-[10px] font-black italic text-primary">{game.soldTickets || 0} / {game.total_tickets || 100} TIX</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[8px] font-black text-muted-foreground uppercase">Unique Buyers</span>
+                  <span className="text-[10px] font-black italic text-[#facc15]">{game.buyersCount || 0} MEMBERS</span>
+                </div>
+              </div>
               
               <div className="flex items-center gap-2">
                 <Link href={`/admin/games/${game.id || game._id}`} className="flex-1">

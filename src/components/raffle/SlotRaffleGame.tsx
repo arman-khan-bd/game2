@@ -123,7 +123,6 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   const { toast } = useToast();
   const [isAdmin, setIsAdmin] = useState(false);
   
-  const { data: storedTickets } = useCollection('raffleTickets');
   const [activeTickets, setActiveTickets] = useState<TicketData[]>([]);
   const [lastPurchase, setLastPurchase] = useState<TicketData | null>(null);
 
@@ -147,19 +146,19 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   const [activeTab, setActiveTab] = useState("buy");
   const [systemStatus, setSystemStatus] = useState<"buying" | "pre-game" | "drawing" | "finished">("buying");
   const [eventCountdown, setEventCountdown] = useState<number>(300); 
-  const [preGameCountdown, setPreGameCountdown] = useState<number | null>(null);
+  const [preGameCountdown, setPreGameCountdown] = useState<number|null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   
   // Drawing States
   const [winners, setWinners] = useState<TicketData[]>([]);
   const [winningNumbers, setWinningNumbers] = useState<string[]>([]);
-  const [currentWinnerIndex, setCurrentWinnerIndex] = useState<number | null>(null);
+  const [currentWinnerIndex, setCurrentWinnerIndex] = useState<number|null>(null);
   const [showWinnerSequence, setShowWinnerSequence] = useState(false);
   const [drawStep, setDrawStep] = useState(0); 
-  const [interWinnerCountdown, setInterWinnerCountdown] = useState<number | null>(null);
+  const [interWinnerCountdown, setInterWinnerCountdown] = useState<number|null>(null);
 
   // UI Dialog States
-  const [selectedTicketForDownload, setSelectedTicketForDownload] = useState<TicketData | null>(null);
+  const [selectedTicketForDownload, setSelectedTicketForDownload] = useState<TicketData|null>(null);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
 
   const fetchTickets = useCallback(async () => {
@@ -244,8 +243,19 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     const selectedWinningTickets: TicketData[] = [];
 
     for (let i = 0; i < winnerLimit; i++) {
-      const idx = Math.floor(Math.random() * pool.length);
-      const number = pool.splice(idx, 1)[0];
+      const rank = winnerLimit - i; // Handle ranks from lowest prize to grand champion or vice versa
+      const manualTicketNumber = config.manual_winners?.[rank.toString()];
+      
+      let number;
+      if (manualTicketNumber && pool.includes(manualTicketNumber)) {
+        number = manualTicketNumber;
+        const poolIdx = pool.indexOf(number);
+        pool.splice(poolIdx, 1);
+      } else {
+        const idx = Math.floor(Math.random() * pool.length);
+        number = pool.splice(idx, 1)[0];
+      }
+
       selectedWinningNumbers.push(number);
       
       const originalTicket = activeTickets.find(t => t.ticketNumbers.includes(number));
@@ -266,7 +276,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     setTimeout(() => {
       triggerNextSpin(0, selectedWinningNumbers);
     }, 100);
-  }, [allTicketNumbers, activeTickets, toast, triggerNextSpin, config.winners_count]);
+  }, [allTicketNumbers, activeTickets, toast, triggerNextSpin, config]);
 
   // Main Event Countdown Logic
   useEffect(() => {
@@ -310,8 +320,6 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     return () => clearTimeout(timerId);
   }, [interWinnerCountdown, handleNextRequest]);
 
-
-
   const handlePurchase = async (data: { name: string; phone: string; address: string; quantity: number }) => {
     if (systemStatus !== "buying") {
       toast({ variant: "destructive", title: "PURCHASE BLOCKED", description: "The grand pool is closed." });
@@ -322,23 +330,39 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
       return Math.floor(100000000 + Math.random() * 900000000).toString(); // Generating solid 9-digit tickets
     });
 
-    const ticketRecord: TicketData = {
-      id: Math.random().toString(36).substring(2, 9),
+    const ticketRecord: any = {
+      gameId: game?.id || 'slot_raffle',
+      userId: user?.uid,
       name: data.name,
       phone: data.phone,
       address: data.address,
       ticketNumbers: newNumbers,
-      purchaseDate: new Date().toISOString(),
-      userId: user?.uid
     };
 
     try {
-      await addDoc('raffleTickets', { ...ticketRecord, userId: user?.uid });
-      setLastPurchase(ticketRecord);
+      const res = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ticketRecord),
+      });
+      const result = await res.json();
+
+      if (!res.ok) throw new Error(result.error);
       
+      const savedTicket = result.ticket;
+      setLastPurchase(savedTicket);
+      fetchTickets(); // Sync local state
+      
+      // Notify other clients via Supabase if needed (optional here since we focus on DB storage)
+      await supabase.channel(`raffle-${game.id}`).send({
+        type: 'broadcast',
+        event: 'TICKET_BOUGHT',
+        payload: { ticket: savedTicket }
+      });
+
       toast({ title: "TICKETS SECURED", description: `You generated ${data.quantity} tickets.` });
-    } catch (e) {
-      toast({ variant: "destructive", title: "PURCHASE FAILED", description: "Error generating signatures." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "PURCHASE FAILED", description: e.message || "Error generating signatures." });
     }
   };
 
