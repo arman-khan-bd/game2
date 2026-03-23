@@ -55,10 +55,8 @@ export function AdminSidebar() {
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard, href: '/admin' },
     { id: 'registry', label: 'System Registry', icon: Activity, href: '/admin/tickets' },
-    { id: 'servers', label: 'Server Monitor', icon: Activity, href: '/admin/servers' },
     { id: 'bots', label: 'Bot Manager', icon: Bot, href: '/admin/bots' },
     { id: 'users', label: 'User Directory', icon: Users, href: '/admin/users' },
-    { id: 'raffle', label: 'Raffle Manager', icon: Ticket, href: '/admin/raffle' },
     { id: 'games', label: 'Game Manager', icon: Gamepad2, href: '/admin/games' },
   ];
 

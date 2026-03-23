@@ -14,13 +14,6 @@ interface TicketFormProps {
   balance?: number;
 }
 
-const PRE_USERS = [
-  { name: "MD. Rakib Hossein", phone: "01712345678", address: "Dhanmondi, Dhaka" },
-  { name: "Sumon Ahmed", phone: "01887654321", address: "Zindabazar, Sylhet" },
-  { name: "Tania Akter", phone: "01911223344", address: "GEC, Chittagong" },
-  { name: "Abir Khan", phone: "01655443322", address: "Rajshahi City" },
-];
-
 export const TicketForm: React.FC<TicketFormProps> = ({ onSubmit, ticketPrice = 1, balance = 0 }) => {
   const [formData, setFormData] = useState({
     name: "",
@@ -28,14 +21,6 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onSubmit, ticketPrice = 
     address: ""
   });
   const [quantity, setQuantity] = useState(1);
-
-  const selectPreUser = (user: typeof PRE_USERS[0]) => {
-    setFormData({
-      name: user.name,
-      phone: user.phone,
-      address: user.address
-    });
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,26 +41,6 @@ export const TicketForm: React.FC<TicketFormProps> = ({ onSubmit, ticketPrice = 
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-8 space-y-8">
-        {/* Quick Select Section */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase text-[#7da09d] tracking-widest ml-1">
-            <Users className="w-3.5 h-3.5 text-[#facc15]" />
-            Quick Select Profiles
-          </div>
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
-            {PRE_USERS.map((user, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => selectPreUser(user)}
-                className="px-4 py-2 rounded-xl bg-black/40 border border-white/5 text-[10px] font-bold text-white whitespace-nowrap hover:bg-[#facc15]/10 hover:border-[#facc15]/30 transition-all active:scale-95"
-              >
-                {user.name.split(' ')[0]}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">

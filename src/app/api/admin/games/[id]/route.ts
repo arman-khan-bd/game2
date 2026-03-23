@@ -92,24 +92,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     if (updatedGame) {
-        // Broadcast the update to all active game rooms
-        try {
-            const { createClient } = await import('@supabase/supabase-js');
-            const supabase = createClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rdepfiqnzilqixgxknss.supabase.co',
-                process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkZXBmaXFuemlscWl4Z3hrbnNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MDAxNzgsImV4cCI6MjA4OTA3NjE3OH0.a0CZTxsanpC1sno3-4m2I1iZA8GrLTNuq2sAVV6OG0g'
-            );
-            
-            const channel = supabase.channel(`game_${slugId}`);
-            await channel.send({
-                type: 'broadcast',
-                event: 'GAME_ROLLOVER',
-                payload: { drawDate: updatedGame.draw_date }
-            });
-            console.log('--- ADMIN REALTIME SYNK SENT ---');
-        } catch (syncErr) {
-            console.error('Realtime Sync Error:', syncErr);
-        }
+        console.log('--- ADMIN UPDATE SYNCED TO MONGODB ---');
     }
 
     return NextResponse.json({ message: 'Game parameters refreshed', game: updatedGame }, { status: 200 });

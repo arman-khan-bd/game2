@@ -83,59 +83,61 @@ export default function TicketRegistry() {
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-tight">SYSTEM <span className="text-primary">REGISTRY</span></h1>
-          <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.3em] flex items-center gap-2">
+          <h1 className="text-3xl md:text-4xl font-black italic tracking-tighter uppercase leading-tight">SYSTEM <span className="text-primary">REGISTRY</span></h1>
+          <p className="text-muted-foreground text-[8px] md:text-[10px] font-bold uppercase tracking-[0.3em] flex items-center gap-2">
             <Target className="w-3 h-3 text-primary" />
             Central entry & settlement audit logs
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative group">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+          <div className="relative group flex-1">
             <Search className="absolute left-4 top-1/2 -track-y-1/2 w-4 h-4 text-white/40 group-focus-within:text-primary transition-colors" />
             <Input 
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
-              placeholder="Filter by name, phone or game..."
-              className="pl-11 h-12 w-[300px] bg-white/5 border-white/5 font-bold text-xs italic tracking-widest focus:border-primary/50 transition-all"
+              placeholder="Filter..."
+              className="pl-11 h-12 w-full md:w-[250px] bg-white/5 border-white/5 font-bold text-xs italic tracking-widest focus:border-primary/50 transition-all"
             />
           </div>
-          <Button variant="outline" onClick={fetchRegistry} className="h-12 border-white/10 bg-white/5 hover:bg-white/10 font-bold group">
-            <RefreshCcw className={cn("w-4 h-4 mr-2 transition-transform", isLoading && "animate-spin")} />
-            REFRESH
-          </Button>
-          <Button className="h-12 bg-primary hover:bg-primary/90 font-black italic uppercase tracking-widest text-[10px] px-8">
-            <Download className="w-4 h-4 mr-2" /> EXPORT LOGS
-          </Button>
+          <div className="flex gap-2">
+             <Button variant="outline" onClick={fetchRegistry} className="h-12 flex-1 md:flex-none border-white/10 bg-white/5 hover:bg-white/10 font-bold group">
+               <RefreshCcw className={cn("w-4 h-4 mr-2 transition-transform", isLoading && "animate-spin")} />
+               <span className="hidden sm:inline">REFRESH</span>
+             </Button>
+             <Button className="h-12 flex-1 md:flex-none bg-primary hover:bg-primary/90 font-black italic uppercase tracking-widest text-[9px] px-6">
+               <Download className="w-4 h-4 mr-2" /> EXPORT
+             </Button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-white/5 border-white/5 p-6 space-y-2">
-           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Total Entries</span>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-white/5 border-white/5 p-4 md:p-6 space-y-2">
+           <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Total Entries</span>
            <div className="flex items-end justify-between">
-              <span className="text-3xl font-black italic text-white leading-none">{tickets.length}</span>
-              <Users className="w-5 h-5 text-primary opacity-50" />
+              <span className="text-xl md:text-3xl font-black italic text-white leading-none">{tickets.length}</span>
+              <Users className="w-4 h-4 md:w-5 md:h-5 text-primary opacity-50" />
            </div>
         </Card>
-        <Card className="bg-white/5 border-white/5 p-6 space-y-2">
-           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Winners Detected</span>
+        <Card className="bg-white/5 border-white/5 p-4 md:p-6 space-y-2">
+           <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Winners</span>
            <div className="flex items-end justify-between">
-              <span className="text-3xl font-black italic text-[#facc15] leading-none">{winners.length}</span>
-              <Trophy className="w-5 h-5 text-[#facc15] opacity-50" />
+              <span className="text-xl md:text-3xl font-black italic text-[#facc15] leading-none">{winners.length}</span>
+              <Trophy className="w-4 h-4 md:w-5 md:h-5 text-[#facc15] opacity-50" />
            </div>
         </Card>
-        <Card className="bg-white/5 border-white/5 p-6 space-y-2">
-           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Pending Payouts</span>
+        <Card className="bg-white/5 border-white/5 p-4 md:p-6 space-y-2">
+           <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Pending</span>
            <div className="flex items-end justify-between">
-              <span className="text-3xl font-black italic text-red-500 leading-none">{winners.filter(w => !w.isSettled).length}</span>
-              <CreditCard className="w-5 h-5 text-red-500 opacity-50" />
+              <span className="text-xl md:text-3xl font-black italic text-red-500 leading-none">{winners.filter(w => !w.isSettled).length}</span>
+              <CreditCard className="w-4 h-4 md:w-5 md:h-5 text-red-500 opacity-50" />
            </div>
         </Card>
-        <Card className="bg-white/5 border-white/5 p-6 space-y-2 border-primary/20 bg-primary/5">
-           <span className="text-[10px] font-black text-primary uppercase tracking-widest">Audit Status</span>
+        <Card className="bg-white/5 border-white/5 p-4 md:p-6 space-y-2 border-primary/20 bg-primary/5">
+           <span className="text-[8px] md:text-[10px] font-black text-primary uppercase tracking-widest">Audit</span>
            <div className="flex items-end justify-between">
-              <span className="text-xl font-black italic text-white uppercase leading-none">Healthy</span>
-              <CheckCircle2 className="w-5 h-5 text-primary opacity-50" />
+              <span className="text-lg md:text-xl font-black italic text-white uppercase leading-none text-[12px] md:text-xl">Healthy</span>
+              <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-primary opacity-50" />
            </div>
         </Card>
       </div>
@@ -162,8 +164,9 @@ export default function TicketRegistry() {
       </div>
 
       <Card className="bg-card/30 backdrop-blur-xl border-white/5 shadow-2xl overflow-hidden min-h-[500px]">
-        {activeTab === 'tickets' ? (
-          <div className="animate-in fade-in slide-in-from-left-4 duration-300">
+        <div className="overflow-x-auto custom-scrollbar">
+          {activeTab === 'tickets' ? (
+            <div className="animate-in fade-in slide-in-from-left-4 duration-300 min-w-[800px]">
             <Table>
               <TableHeader className="bg-white/5">
                 <TableRow className="border-white/5 hover:bg-transparent">
@@ -234,8 +237,8 @@ export default function TicketRegistry() {
               </TableBody>
             </Table>
           </div>
-        ) : (
-          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+          ) : (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300 min-w-[800px]">
             <Table>
               <TableHeader className="bg-white/5">
                 <TableRow className="border-white/5 hover:bg-transparent">
@@ -295,6 +298,7 @@ export default function TicketRegistry() {
             </Table>
           </div>
         )}
+        </div>
       </Card>
     </div>
   );

@@ -11,10 +11,10 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Sparkles, Play, Ticket as TicketIcon, Trophy, 
   Loader2, Timer, Download, FastForward, Clock,
-  RefreshCcw, AlertCircle, User, MapPin, Phone
+  RefreshCcw, AlertCircle, User, MapPin, Phone, ShieldCheck
 } from "lucide-react";
-import { useUser, useDoc } from "@/firebase";
-import { supabase } from "@/lib/supabase";
+import { useUser } from "@/firebase";
+// Removed Supabase in favor of native MongoDB Polling
 import {
   Dialog,
   DialogContent,
@@ -137,6 +137,13 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   const [drawStep, setDrawStep] = useState(0); 
   const [interWinnerCountdown, setInterWinnerCountdown] = useState<number|null>(null);
   const [rolloverCountdown, setRolloverCountdown] = useState<number|null>(null);
+  const [settlementCountdown, setSettlementCountdown] = useState<number|null>(null);
+  const [isSettling, setIsSettling] = useState(false);
+  
+  // Ref tracking for unstable comparisons and interval stability
+  const lastDrawDateRef = useRef<string | null>(null);
+  const lastStepRef = useRef<number | null>(null);
+  const lastSoldTicketsRef = useRef<number | null>(null);
 
   const fetchTickets = useCallback(async () => {
     if (!game?.id) return;
@@ -150,69 +157,72 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   }, [game?.id]);
 
   const broadcastEvent = useCallback(async (event: string, payload: any) => {
-    if (!game?.id) return;
-    await supabase.channel(`raffle-${game.id}`).send({
-      type: 'broadcast',
-      event,
-      payload
-    });
-  }, [game?.id]);
+     // Broadcast disabled - switching to poll-based sync for MongoDB purity
+     console.log(`[POLLED_MODE] Event: ${event}`, payload);
+  }, []);
 
   const triggerNextSpin = useCallback((step: number, list: string[]) => {
     setIsDrawing(true);
     setInterWinnerCountdown(null);
   }, []);
 
-  // Sync / Monitor Effect
+  // Unified Heartbeat Sync (Stable Interval)
   useEffect(() => {
-    if (!game?.id) return;
+    const gameId = game?.id;
+    if (!gameId) return;
 
-    const channel = supabase.channel(`raffle-${game.id}`)
-      .on('broadcast', { event: 'DRAW_STARTED' }, ({ payload }) => {
-        setWinners(payload.winners || []);
-        setWinningNumbers(payload.winningNumbers || []);
-        setDrawStep(0);
-        setSystemStatus("drawing");
-        setActiveTab("draw");
-      })
-      .on('broadcast', { event: 'NEXT_STEP' }, ({ payload }) => {
-        setDrawStep(payload.step);
-        setIsDrawing(false);
-        setInterWinnerCountdown(null);
-        triggerNextSpin(payload.step, winningNumbers);
-      })
-      .on('broadcast', { event: 'TICKET_BOUGHT' }, ({ payload }) => {
-        if (payload.allTickets) setActiveTickets(payload.allTickets);
-        else fetchTickets();
-      })
-      .on('broadcast', { event: 'GAME_ROLLOVER' }, ({ payload }) => {
-        setTargetDrawDate(new Date(payload.drawDate));
-        setSystemStatus("buying");
-        setActiveTab("buy");
-        setWinners([]); // Clear current winner list for new round
-        setWinningNumbers([]);
-      })
-      .subscribe();
+    const syncWithDatabase = async () => {
+      try {
+         const res = await fetch(`/api/admin/games/${gameId}`);
+         const data = await res.json();
+         const updatedGame = data.game || data;
+         if (!updatedGame) return;
 
-    const recoveryInterval = setInterval(async () => {
-      if ((systemStatus === "drawing" || systemStatus === "finished") && winningNumbers.length === 0) {
-        try {
-           const res = await fetch(`/api/admin/games/${game.id}`);
-           const { game: updatedGame } = await res.json();
-           if (updatedGame?.current_winners?.length > 0) {
-              setWinners(updatedGame.current_winners);
-              setWinningNumbers(updatedGame.current_winning_numbers);
-              setDrawStep(updatedGame.current_step || 0);
-           }
-        } catch {}
+         // 1. Precise Timer Sync
+         const srvDate = updatedGame.draw_date ? new Date(updatedGame.draw_date).toISOString() : null;
+         if (srvDate !== lastDrawDateRef.current) {
+            lastDrawDateRef.current = srvDate;
+            setTargetDrawDate(updatedGame.draw_date ? new Date(updatedGame.draw_date) : null);
+         }
+
+         // 2. Draw Progression Sync
+         if (updatedGame.draw_started_at) {
+            setSystemStatus(prev => (prev !== "drawing" && prev !== "finished") ? "drawing" : prev);
+            
+            setWinners(updatedGame.current_winners || []);
+            setWinningNumbers(updatedGame.current_winning_numbers || []);
+            
+            if (updatedGame.current_step !== lastStepRef.current) {
+               lastStepRef.current = updatedGame.current_step;
+               setDrawStep(updatedGame.current_step || 0);
+               setIsDrawing(false);
+               setInterWinnerCountdown(null);
+            }
+         } else {
+            const srvNow = Date.now();
+            if (updatedGame.draw_date && new Date(updatedGame.draw_date).getTime() > srvNow) {
+                setSystemStatus(prev => (prev === "drawing") ? "buying" : prev);
+            }
+         }
+
+         // 3. Participant Count Sync
+         if ((updatedGame.soldTickets || 0) !== lastSoldTicketsRef.current) {
+            lastSoldTicketsRef.current = (updatedGame.soldTickets || 0);
+            fetchTickets();
+         }
+      } catch (err) {
+         console.error('Heartbeat Error:', err);
       }
-    }, 5000);
-
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(recoveryInterval);
     };
-  }, [game?.id, systemStatus, winningNumbers, triggerNextSpin, fetchTickets]);
+
+    const intervalTime = (systemStatus === "drawing") ? 2500 : 8000;
+    const interval = setInterval(syncWithDatabase, intervalTime);
+    
+    // Safety: Only instant-sync if this is a fresh mount or status jump
+    syncWithDatabase();
+
+    return () => clearInterval(interval);
+  }, [game?.id, systemStatus]); // fetchTickets removed as it is stable
 
   // Timer Effect
   useEffect(() => {
@@ -224,7 +234,7 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
 
       if (diff > 0) {
         setEventCountdown(diff);
-        setSystemStatus("buying");
+        setSystemStatus(prev => (prev === "drawing" || prev === "finished") ? prev : "buying");
         return;
       }
 
@@ -260,11 +270,19 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
   }, [targetDrawDate, systemStatus, serverTimeOffset, game?.draw_started_at, game?.current_winners, game?.current_winning_numbers, game?.current_step]);
 
   useEffect(() => {
-    fetchTickets();
     if (user) {
       fetch(`/api/profile?uid=${user.uid}`).then(r => r.json()).then(d => { if (d?.profile?.role === 'admin') setIsAdmin(true); });
     }
-  }, [fetchTickets, user]);
+  }, [user]);
+
+  // AUTO-TAB SWITCHER: Ensures UI follows game state
+  useEffect(() => {
+    if (systemStatus === "drawing" || systemStatus === "finished" || systemStatus === "pre-game") {
+        setActiveTab(prev => (prev !== "draw" ? "draw" : prev));
+    } else if (systemStatus === "buying") {
+        setActiveTab(prev => (prev !== "buy" ? "buy" : prev));
+    }
+  }, [systemStatus]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -281,6 +299,37 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     return n + "th Place";
   };
 
+
+  const triggerAutoSettlement = useCallback(async () => {
+    if (!game?.id || isSettling) return;
+    setIsSettling(true);
+    try {
+      const res = await fetch(`/api/admin/games/${game?.id || game?._id}/payout`, { method: 'POST' });
+      if (res.ok) {
+        toast({ title: "AUDIT COMPLETE", description: "All prize money has been joined to user balances!" });
+        setSettlementCountdown(null);
+      }
+    } catch (err) {
+      console.error('Payout error:', err);
+    } finally {
+      setIsSettling(false);
+    }
+  }, [game?.id, game?._id, isSettling, toast]);
+  
+  useEffect(() => {
+    if (settlementCountdown === null || settlementCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setSettlementCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          triggerAutoSettlement();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [settlementCountdown, triggerAutoSettlement]);
+
   const handleRollover = useCallback(async () => {
     if (!game?.id) return;
     try {
@@ -290,7 +339,8 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
         setTargetDrawDate(new Date(data.draw_date));
         setSystemStatus("buying");
         setActiveTab("buy");
-        toast({ title: "NEXT ROUND ACTIVE", description: `You can buy tickets for the next draw now!` });
+        setSettlementCountdown(120); // Start the 2-minute audit
+        toast({ title: "NEXT ROUND ACTIVE", description: `You can buy tickets for the next draw now! Audit in progress for last round.` });
         broadcastEvent('GAME_ROLLOVER', { drawDate: data.draw_date });
       }
     } catch (err) {
@@ -351,6 +401,18 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
     }
   }, [drawStep, game?.winners_count, game?.next_winner_minutes]);
 
+  // Pre-game Autostart Logic
+  useEffect(() => {
+    if (preGameCountdown === null) return;
+    if (preGameCountdown <= 0) {
+      setPreGameCountdown(null);
+      startDraw(); // Auto-launch RNG sequencer
+      return;
+    }
+    const timer = setInterval(() => setPreGameCountdown(p => (p || 0) - 1), 1000);
+    return () => clearInterval(timer);
+  }, [preGameCountdown, startDraw]);
+
   // Render Logic
   const allTicketNumbers = activeTickets.flatMap(t => t.ticketNumbers);
   const currentActiveWinningTicketStr = winningNumbers[drawStep] || null;
@@ -363,7 +425,11 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
             <TabsTrigger value="buy" className="rounded-2xl font-black italic uppercase text-[10px] tracking-widest data-[state=active]:bg-[#facc15] data-[state=active]:text-black transition-all">
               <TicketIcon className="w-3.5 h-3.5 mr-2" /> Get Tickets
             </TabsTrigger>
-            <TabsTrigger value="draw" className="rounded-2xl font-black italic uppercase text-[10px] tracking-widest data-[state=active]:bg-[#facc15] data-[state=active]:text-black transition-all">
+            <TabsTrigger 
+              value="draw" 
+              disabled={systemStatus === "buying"}
+              className="rounded-2xl font-black italic uppercase text-[10px] tracking-widest data-[state=active]:bg-[#facc15] data-[state=active]:text-black transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+            >
               <Play className="w-3.5 h-3.5 mr-2" /> Live Draw
             </TabsTrigger>
           </TabsList>
@@ -472,7 +538,23 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
                       </CardContent>
                    </Card>
 
-                    {systemStatus === "finished" && winners.length > 0 && (
+                    {settlementCountdown !== null && settlementCountdown > 0 ? (
+                       <Card className="bg-emerald-500/10 border-emerald-500/20 rounded-[32px] overflow-hidden p-8 text-center space-y-4">
+                          <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                             <ShieldCheck className="w-8 h-8 text-emerald-400" />
+                          </div>
+                          <div className="space-y-1">
+                             <h4 className="text-sm font-black italic uppercase text-white">Security Audit In Progress</h4>
+                             <p className="text-[10px] font-bold text-[#7da09d] uppercase">Prize money disbursement in:</p>
+                          </div>
+                          <div className="text-4xl font-mono font-black text-emerald-400">
+                             {Math.floor(settlementCountdown / 60)}:{ (settlementCountdown % 60).toString().padStart(2, '0') }
+                          </div>
+                          <p className="text-[8px] font-bold text-white/40 uppercase tracking-widest leading-relaxed">
+                             Please wait while the system validates current winning sequence and settle accounts
+                          </p>
+                       </Card>
+                    ) : systemStatus === "finished" && winners.length > 0 && (
                      <Card className="bg-[#002d28] border-[#facc15]/20 rounded-[40px] overflow-hidden shadow-[0_0_40px_rgba(250,204,21,0.1)] border-t-4 border-t-[#facc15]">
                         <CardHeader className="p-8 border-b border-white/5 bg-[#facc15]/5">
                            <div className="flex items-center gap-3">

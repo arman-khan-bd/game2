@@ -74,45 +74,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     game.current_winning_numbers = selectedWinningNumbers;
     game.current_step = 0;
     
-    // --- AUTOMATED PRIZE PAYOUT ENGINE ---
-    try {
-        const totalPool = tickets.length * (game.ticket_price || 1);
-        const prizes = game.prizes || [];
-
-        for (let i = 0; i < selectedWinningTickets.length; i++) {
-            const winnerTicket = selectedWinningTickets[i];
-            const rank = selectedWinningTickets.length - i;
-            const prizeConfig = prizes.find((p: any) => p.rank === rank);
-            
-            if (prizeConfig && winnerTicket.userId) {
-                const prizeAmount = (totalPool * prizeConfig.percentage) / 100;
-                
-                // 1. Atomic Credit to Profile
-                await Profile.findOneAndUpdate(
-                    { firebaseUid: winnerTicket.userId },
-                    { 
-                        $inc: { 
-                            balance: prizeAmount,
-                            total_won: prizeAmount
-                        } 
-                    }
-                );
-
-                // 2. Persistent Notification
-                const Notification = (await import('@/models/Notification')).default;
-                await Notification.create({
-                    userId: winnerTicket.userId,
-                    title: '🏆 SPECTACULAR WIN!',
-                    message: `Congratulations! Your ticket #${winnerTicket.ticketNumbers[0]} won Rank ${rank} in ${game.name}. ৳${prizeAmount.toLocaleString()} credited.`,
-                    type: 'win',
-                    metadata: { gameId: game.id, amount: prizeAmount, rank }
-                });
-            }
-        }
-    } catch (payoutErr) {
-        console.error('CRITICAL: Payout Error:', payoutErr);
-        // We continue anyway as the draw data is saved
-    }
+    // --- DELAYED PAYOUT SYSTEM ---
+    // Payout is now handled in a separate route (/api/admin/games/[id]/payout)
+    // triggered 2 minutes after the UI reveals the winners to ensure 
+    // a premium surprise-reveal experience.
+    
+    game.last_payout_complete = false;
+    game.draw_completed_at = null; // Reset for new draw
 
     await game.save();
 

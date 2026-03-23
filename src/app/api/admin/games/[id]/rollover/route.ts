@@ -16,10 +16,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const game = await Game.findOne(query);
     if (!game) return NextResponse.json({ error: 'Game not found' }, { status: 404 });
 
-    // 1. Calculate next draw date based on auto_play_hours
+    // 1. Calculate next draw date based on precise auto_play_hours interval
     const hours = game.auto_play_hours || 24;
-    const nextDrawDate = new Date();
-    nextDrawDate.setHours(nextDrawDate.getHours() + hours);
+    // Base the next date on the previous scheduled date to maintain consistency
+    const baseDate = game.draw_date ? new Date(game.draw_date) : new Date();
+    const nextDrawDate = new Date(baseDate.getTime() + (hours * 60 * 60 * 1000));
+    
+    // Safety check: If for some reason the next date is still in the past, push it to future
+    if (nextDrawDate.getTime() <= Date.now()) {
+        nextDrawDate.setTime(Date.now() + (hours * 60 * 60 * 1000));
+    }
 
     // 2. Clear tickets for this game (Archive or Delete)
     // We update them to 'expired' status so they stay in history but are removed from play

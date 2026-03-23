@@ -91,6 +91,19 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
   const [rolloverCountdown, setRolloverCountdown] = useState<number|null>(null);
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
 
+  // Drawing States
+  const [winners, setWinners] = useState<TicketData[]>([]);
+  const [winningNumbers, setWinningNumbers] = useState<string[]>([]);
+  const [currentWinnerIndex, setCurrentWinnerIndex] = useState<number | null>(null);
+  const [showWinnerSequence, setShowWinnerSequence] = useState(false);
+  const [drawStep, setDrawStep] = useState(0); 
+  const [interWinnerCountdown, setInterWinnerCountdown] = useState<number | null>(null);
+  const [revealedPool, setRevealedPool] = useState<string[]>([]);
+
+  // UI Dialog States
+  const [selectedTicketForDownload, setSelectedTicketForDownload] = useState<TicketData | null>(null);
+  const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
+
   useEffect(() => {
     if (!targetDrawDate) return;
 
@@ -154,6 +167,24 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
     fetchOffset();
   }, []);
 
+
+  const handleRollover = async () => {
+    if (!game?.id) return;
+    try {
+      const res = await fetch(`/api/admin/games/${game.id}/rollover`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        broadcastEvent('GAME_ROLLOVER', { 
+           draw_date: data.draw_date,
+           status: 'buying'
+        });
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error("Rollover failed:", err);
+    }
+  };
+
   // Tick all system timers
   useEffect(() => {
     const timer = setInterval(() => {
@@ -175,23 +206,6 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
     return () => clearInterval(timer);
   }, [interWinnerCountdown, rolloverCountdown]);
 
-  const handleRollover = async () => {
-    if (!game?.id) return;
-    try {
-      const res = await fetch(`/api/admin/games/${game.id}/rollover`, { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        broadcastEvent('GAME_ROLLOVER', { 
-           draw_date: data.draw_date,
-           status: 'buying'
-        });
-        window.location.reload();
-      }
-    } catch (err) {
-      console.error("Rollover failed:", err);
-    }
-  };
-
   useEffect(() => {
     if (user) {
       fetch(`/api/profile?uid=${user.uid}`)
@@ -201,18 +215,6 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
     }
   }, [user]);
 
-  // Drawing States
-  const [winners, setWinners] = useState<TicketData[]>([]);
-  const [winningNumbers, setWinningNumbers] = useState<string[]>([]);
-  const [currentWinnerIndex, setCurrentWinnerIndex] = useState<number | null>(null);
-  const [showWinnerSequence, setShowWinnerSequence] = useState(false);
-  const [drawStep, setDrawStep] = useState(0); 
-  const [interWinnerCountdown, setInterWinnerCountdown] = useState<number | null>(null);
-  const [revealedPool, setRevealedPool] = useState<string[]>([]);
-
-  // UI Dialog States
-  const [selectedTicketForDownload, setSelectedTicketForDownload] = useState<TicketData | null>(null);
-  const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
 
   // Filter tickets for this game
   const allTicketNumbers = activeTickets
