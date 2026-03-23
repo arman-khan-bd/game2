@@ -19,6 +19,21 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#facc15" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <script
+          dangerouslySetInnerHTML={{
+             __html: `
+               if ('serviceWorker' in navigator) {
+                 window.addEventListener('load', function() {
+                   navigator.serviceWorker.register('/sw.js');
+                 });
+               }
+             `
+          }}
+        />
       </head>
       <body className="font-body antialiased selection:bg-[#facc15]/30 selection:text-[#facc15] bg-[#001f1c] custom-scrollbar">
         <FirebaseClientProvider>

@@ -114,31 +114,31 @@ export const WinnerSequence: React.FC<WinnerSequenceProps> = ({
             className="pt-10 pb-8 flex flex-col items-center text-center space-y-8"
           >
             <div className="relative">
-              <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center border-2 ${currentWinnerRank === 1 ? 'bg-[#facc15]/10 border-[#facc15] text-[#facc15]' : 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'}`}>
-                <Trophy className={currentWinnerRank === 1 ? 'w-12 h-12 animate-bounce' : 'w-10 h-10'} />
+              <div className={`w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-[32px] flex items-center justify-center border-2 ${currentWinnerRank === 1 ? 'bg-[#facc15]/10 border-[#facc15] text-[#facc15]' : 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'}`}>
+                <Trophy className={currentWinnerRank === 1 ? 'w-8 h-8 md:w-12 md:h-12 animate-bounce' : 'w-7 h-7 md:w-10 md:h-10'} />
               </div>
-              <div className="absolute -top-2 -right-2 bg-white text-black text-[10px] font-black px-2 py-0.5 rounded-lg uppercase">
+              <div className="absolute -top-1 -right-1 md:-top-2 md:-right-2 bg-white text-black text-[8px] md:text-[10px] font-black px-1.5 md:px-2 py-0.5 rounded-md md:rounded-lg uppercase shadow-xl">
                  Rank: {currentWinnerRank}
               </div>
             </div>
 
-            <div className="space-y-1">
-              <h2 className={`text-4xl font-black italic uppercase tracking-tighter ${currentWinnerRank === 1 ? 'text-[#facc15]' : 'text-white'}`}>
+            <div className="space-y-0.5 md:space-y-1">
+              <h2 className={`text-2xl md:text-4xl font-black italic uppercase tracking-tighter ${currentWinnerRank === 1 ? 'text-[#facc15]' : 'text-white'}`}>
                 {rankLabel}
               </h2>
-              <p className="text-[10px] font-black text-[#7da09d] uppercase tracking-[0.4em]">Winning Ticket Announced</p>
+              <p className="text-[8px] md:text-[10px] font-black text-[#7da09d] uppercase tracking-[0.2em] md:tracking-[0.4em]">Winning Ticket Announced</p>
             </div>
 
-            <div className="relative group py-6 px-12 rounded-3xl bg-black/40 border border-white/5 overflow-hidden">
+            <div className="relative group py-4 md:py-6 px-8 md:px-12 rounded-2xl md:rounded-3xl bg-black/40 border border-white/5 overflow-hidden">
                <div className={`absolute inset-0 opacity-20 blur-2xl ${currentWinnerRank === 1 ? 'bg-[#facc15]' : 'bg-emerald-500'}`} />
-               <span className={`text-4xl md:text-5xl font-mono font-black relative z-10 ${currentWinnerRank === 1 ? 'text-[#facc15]' : 'text-white'}`}>
+               <span className={`text-2xl md:text-5xl font-mono font-black relative z-10 ${currentWinnerRank === 1 ? 'text-[#facc15]' : 'text-white'}`}>
                   #{currentWinner?.ticketNumbers[0]}
                </span>
             </div>
 
             <div className="flex flex-col items-center">
-               <span className="text-[10px] font-black text-[#7da09d] uppercase mb-1">CASH PRIZE REWARD</span>
-               <span className={`text-3xl font-black italic ${currentWinnerRank === 1 ? 'text-[#facc15]' : 'text-emerald-400'}`}>
+               <span className="text-[8px] md:text-[10px] font-black text-[#7da09d] uppercase mb-1">CASH PRIZE REWARD</span>
+               <span className={`text-xl md:text-3xl font-black italic ${currentWinnerRank === 1 ? 'text-[#facc15]' : 'text-emerald-400'}`}>
                  {prizeDisplay}
                </span>
             </div>

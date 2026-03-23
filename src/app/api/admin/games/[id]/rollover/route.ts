@@ -30,10 +30,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // 3. Update game with new draw date and clear session
     game.draw_date = nextDrawDate;
-    game.draw_started_at = null;
-    game.current_winners = [];
-    game.current_winning_numbers = [];
-    game.current_step = 0;
+    // 3. Update game with new draw date only (Keep winner context for Hall of Fame)
+    game.draw_date = nextDrawDate;
+    // We omit clearing winners here so they stay visible during reveal period
+    // These will be cleared when the NEXT draw actually starts
     
     await game.save();
 

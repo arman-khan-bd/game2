@@ -19,8 +19,13 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  Loader2
+  Loader2,
+  Bell,
+  Zap,
+  CheckCheck,
+  Trophy
 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +44,67 @@ export function Header() {
   const { data: profile } = useDoc(user ? `userProfiles/${user.uid}` : null);
   const [dbRole, setDbRole] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const router = useRouter();
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/notifications?userId=${user.uid}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.notifications?.filter((n: any) => !n.isRead).length || 0);
+    } catch {}
+  }, [user]);
+
+  const monitorGames = useCallback(async () => {
+    if (!user) return;
+    try {
+       const res = await fetch('/api/admin/games');
+       const { games } = await res.json();
+       const now = Date.now();
+
+       for (const game of games) {
+          if (!game.draw_date) continue;
+          const drawTime = new Date(game.draw_date).getTime();
+          const diff = drawTime - now;
+
+          // Game starting in less than 75 seconds (1 minute + buffer)
+          if (diff > 0 && diff < 75000) {
+             // Create notification if recently not created
+             await fetch('/api/notifications', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                   userId: user.uid,
+                   title: 'GAME LAUNCHING',
+                   message: `${game.name} starting in less than 1 minute! Join now.`,
+                   type: 'game_start',
+                   metadata: { gameId: game.id || game._id }
+                })
+             });
+             fetchNotifications();
+          }
+       }
+    } catch {}
+  }, [user, fetchNotifications]);
+
+  useEffect(() => {
+    fetchNotifications();
+    const nInterval = setInterval(fetchNotifications, 60000); // 1 min sync
+    const mInterval = setInterval(monitorGames, 30000); // 30s monitor
+    return () => { clearInterval(nInterval); clearInterval(mInterval); };
+  }, [fetchNotifications, monitorGames]);
+
+  const markRead = async () => {
+    if (!user) return;
+    try {
+       await fetch(`/api/notifications?userId=${user.uid}`, { method: 'PATCH' });
+       fetchNotifications();
+    } catch {}
+  };
 
   // Fetch role directly from MongoDB 'profiles' via API for absolute accuracy
   const fetchUserMetadata = useCallback(async () => {
@@ -138,7 +203,47 @@ export function Header() {
                   </Button>
                 </Link>
               )}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <DropdownMenu onOpenChange={(open) => { if (open) markRead(); }}>
+                  <DropdownMenuTrigger asChild>
+                    <button className="relative p-2 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all group">
+                      <Bell className="w-5 h-5 text-[#7da09d] group-hover:text-[#facc15] transition-colors" />
+                      {unreadCount > 0 && (
+                        <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-600 border-2 border-[#002d28] rounded-full flex items-center justify-center text-[8px] font-black text-white animate-bounce">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-80 bg-[#002d28] border-white/10 text-white p-0 rounded-2xl backdrop-blur-3xl shadow-2xl overflow-hidden">
+                    <div className="px-4 py-4 bg-white/5 flex items-center justify-between border-b border-white/5">
+                      <h3 className="text-[10px] font-black italic uppercase tracking-widest text-[#facc15]">Signal Receiver</h3>
+                      <Link href="/notifications" className="text-[8px] font-black uppercase text-[#7da09d] hover:text-white transition-colors">View All Signals</Link>
+                    </div>
+                    <div className="max-h-[350px] overflow-y-auto overflow-x-hidden custom-scrollbar divide-y divide-white/5">
+                      {notifications.length === 0 ? (
+                        <div className="py-12 text-center">
+                           <Bell className="w-8 h-8 text-white/5 mx-auto mb-2" />
+                           <p className="text-[9px] font-bold uppercase text-[#7da09d]">No active signals</p>
+                        </div>
+                      ) : (
+                        notifications.slice(0, 5).map((n) => (
+                           <DropdownMenuItem key={n._id} onClick={() => n.metadata?.gameId && router.push(`/${n.metadata.gameId}`)} className="p-4 flex flex-col items-start gap-1 focus:bg-white/5 cursor-pointer transition-colors group">
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-[9px] font-black italic uppercase text-[#facc15]">{n.title}</span>
+                                <span className="text-[7px] font-bold text-[#7da09d] uppercase opacity-40">{formatDistanceToNow(new Date(n.createdAt))} ago</span>
+                              </div>
+                              <p className="text-[10px] font-bold text-[#7da09d] group-hover:text-white transition-colors line-clamp-2 uppercase leading-tight">{n.message}</p>
+                           </DropdownMenuItem>
+                        ))
+                      )}
+                    </div>
+                    <Link href="/notifications" className="block p-3 text-center bg-white/5 hover:bg-[#facc15] hover:text-black transition-all">
+                       <span className="text-[9px] font-black italic uppercase tracking-[.2em]">Open Control Center</span>
+                    </Link>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="flex items-center gap-1 focus:outline-none group">
