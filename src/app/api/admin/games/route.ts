@@ -19,9 +19,9 @@ export async function GET() {
     });
 
     return NextResponse.json({ games: formattedGames }, { status: 200 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Fetch Games Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch games' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to fetch games' }, { status: 500 });
   }
 }
 
@@ -39,7 +39,8 @@ export async function POST(req: Request) {
       is_bot_play, 
       is_active,
       winners_count,
-      prizes
+      prizes,
+      instructions
     } = body;
 
     if (!id || !name) {
@@ -66,12 +67,13 @@ export async function POST(req: Request) {
       is_active: is_active ?? true,
       winners_count: parseInt(winners_count) || 1,
       prizes: prizes || [],
-      photo_url: body.photo_url || ''
+      photo_url: body.photo_url || '',
+      instructions: instructions || "Welcome to the game. Place your bets and wait for the system to finalize the sequence."
     });
 
     return NextResponse.json({ game: newGame, message: "Game generated successfully" }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create Game Error:', error);
-    return NextResponse.json({ error: 'Failed to create game' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to create game engine' }, { status: 500 });
   }
 }

@@ -62,7 +62,9 @@ export default function GameConfigPage() {
     winners_count: 1,
     prizes: [],
     manual_winners: {},
-    is_active: true
+    is_active: true,
+    photo_url: '',
+    instructions: ''
   });
 
   const [activeTab, setActiveTab] = useState('config');
@@ -131,7 +133,8 @@ export default function GameConfigPage() {
             ? Object.fromEntries(data.manual_winners) 
             : (data.manual_winners || {}),
           is_active: data.is_active !== false,
-          photo_url: data.photo_url || ''
+          photo_url: data.photo_url || '',
+          instructions: data.instructions || ''
         });
       } else {
         toast({ variant: "destructive", title: "Engine Missing", description: "The requested game core record does not exist in the database." });
@@ -238,6 +241,7 @@ export default function GameConfigPage() {
         manual_winners: formData.manual_winners,
         is_active: formData.is_active,
         photo_url: formData.photo_url,
+        instructions: formData.instructions,
         updated_at: new Date().toISOString()
       };
 
@@ -379,6 +383,18 @@ export default function GameConfigPage() {
                         className="flex h-12 w-full rounded-md border border-white/10 bg-background/50 px-4 font-black text-white focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <FileText className="w-3 h-3" /> Game Instructions
+                    </Label>
+                    <textarea 
+                      value={formData.instructions || ''} 
+                      onChange={(e) => setFormData({...formData, instructions: e.target.value})}
+                      placeholder="Enter game rules and welcome text..."
+                      className="flex min-h-[100px] w-full rounded-md border border-white/10 bg-background/50 px-4 py-3 text-sm font-medium text-white focus:outline-none focus:ring-1 focus:ring-primary scrollbar-hide"
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

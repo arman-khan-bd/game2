@@ -25,9 +25,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     return NextResponse.json({ game }, { status: 200 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Fetch Game Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -52,9 +52,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       is_bot_play: !!body.is_bot_play,
       is_active: body.is_active,
       winners_count: parseInt(body.winners_count) || 1,
-      prizes: body.prizes,
+      prizes: Array.isArray(body.prizes) 
+                ? body.prizes.map((p: any) => ({ rank: p.rank, percentage: p.percentage })) 
+                : [],
       manual_winners: body.manual_winners,
-      photo_url: body.photo_url,
+      photo_url: body.photo_url || '',
+      instructions: body.instructions
     };
 
     // Remove undefined values to avoid corrupting data
@@ -79,7 +82,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ message: 'Game parameters refreshed', game: updatedGame }, { status: 200 });
   } catch (error: any) {
     console.error('Update Game Error:', error);
-    return NextResponse.json({ error: 'Failed to synchronize configuration' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to synchronize configuration' }, { status: 500 });
   }
 }
 

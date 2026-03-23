@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     }
 
     await connectMongo();
-    const tickets = await Ticket.find({ gameId }).sort({ createdAt: -1 });
+    const tickets = await Ticket.find({ gameId, status: 'active' }).sort({ createdAt: -1 });
 
     return NextResponse.json({ tickets }, { status: 200 });
   } catch (err) {
@@ -58,5 +58,21 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error('Purchase Ticket Error:', err);
     return NextResponse.json({ error: 'Database capture failed' }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const { gameId, action } = await req.json();
+    if (action === 'expire_all' && gameId) {
+      await connectMongo();
+      // Mark all tickets as expired
+      await Ticket.updateMany({ gameId }, { $set: { status: 'expired' } });
+      return NextResponse.json({ success: true, message: 'All tickets neutralized' }, { status: 200 });
+    }
+    return NextResponse.json({ error: 'Invalid action payload' }, { status: 400 });
+  } catch (err) {
+    console.error('Expire Tickets Error:', err);
+    return NextResponse.json({ error: 'Failed to update ticket states' }, { status: 500 });
   }
 }

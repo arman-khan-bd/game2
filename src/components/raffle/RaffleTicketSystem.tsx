@@ -425,6 +425,13 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
 
     if (drawStep < (config.winners_count - 1)) {
       setInterWinnerCountdown((config.next_winner_minutes || 5) * 60); 
+    } else {
+      // Draw completed fully, expire all tickets to seal the round
+      fetch('/api/tickets', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId: game?.id || 'raffle', action: 'expire_all' })
+      }).catch(console.error);
     }
   }, [winners, drawStep, config, game?.id, allTicketNumbers.length]);
 
@@ -670,46 +677,40 @@ export const RaffleTicketSystem = ({ game }: { game?: any }) => {
             </CardContent>
           </Card>
 
-          <Card className="bg-[#002d28] border-white/5 rounded-3xl overflow-hidden shadow-2xl relative group">
-             <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
-             <div className="p-6 relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7da09d] flex items-center gap-2">
-                    LIVE TICKET BUYERS
-                    <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                  </h3>
-                  <div className="flex -space-x-2">
-                     {activeTickets.slice(0, 3).map((t, i) => (
-                       <div key={i} className="w-5 h-5 rounded-full bg-[#001f1c] border border-emerald-500/30 flex items-center justify-center text-[6px] font-black text-[#facc15] shadow-lg">
-                         {t.name.charAt(0)}
-                       </div>
-                     ))}
+          {systemStatus !== "finished" && (
+            <Card className="bg-[#002d28] border-white/5 rounded-3xl overflow-hidden shadow-2xl relative group">
+               <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
+               <div className="p-6 relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7da09d] flex items-center gap-2">
+                      LIVE TICKET BUYERS
+                      <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                    </h3>
                   </div>
-                </div>
-                <div className="space-y-3">
-                   {activeTickets.length === 0 ? (
-                     <p className="text-xs font-bold text-white/20 uppercase italic py-8 text-center">Waiting for entrants...</p>
-                   ) : (
-                     activeTickets.slice(-5).reverse().map((t, i) => (
-                       <div 
-                        key={i} 
-                        className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-white/5 transition-all group"
-                        onClick={() => openDownloadDialog(t)}
-                       >
-                          <div>
-                            <p className="text-xs font-black text-white">{t.name}</p>
-                            <p className="text-[8px] font-bold text-[#7da09d] uppercase">Qty: {t.ticketNumbers.length}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-mono text-[#facc15]">#{t.ticketNumbers[0].substring(0, 4)}...</span>
-                            <Download className="w-3 h-3 text-white/20 group-hover:text-[#facc15] transition-colors" />
-                          </div>
-                       </div>
-                     ))
-                   )}
-                </div>
-             </div>
-          </Card>
+                  <div className="space-y-3">
+                     {activeTickets.length === 0 ? (
+                       <p className="text-xs font-bold text-white/20 uppercase italic py-8 text-center">Waiting for buyers...</p>
+                     ) : (
+                       activeTickets.slice(-5).reverse().map((t, i) => (
+                         <div 
+                          key={i} 
+                          className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-white/5 transition-all group"
+                          onClick={() => openDialogIfUser(t)}
+                         >
+                            <div>
+                              <p className="text-xs font-black text-white">{t.name}</p>
+                              <p className="text-[8px] font-bold text-[#7da09d] uppercase">Qty: {t.ticketNumbers.length}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-mono tracking-widest text-[#facc15]">#{t.ticketNumbers[0].substring(0, 4)}...</span>
+                            </div>
+                         </div>
+                       ))
+                     )}
+                  </div>
+               </div>
+            </Card>
+          )}
         </div>
       </div>
 

@@ -36,7 +36,9 @@ export default function GamesManager() {
     next_winner_minutes: 10,
     is_bot_play: false,
     winners_count: 1,
-    prizes: [{ rank: 1, percentage: 100 }]
+    prizes: [{ rank: 1, percentage: 100 }],
+    instructions: '',
+    photo_url: ''
   });
 
   const fetchGames = async () => {
@@ -81,7 +83,20 @@ export default function GamesManager() {
       toast({ title: 'Game Installed', description: 'New engine loaded to MongoDB.' });
       setIsDialogOpen(false);
       fetchGames(); // reload games list to show new game
-      setNewGame({ id: '', name: '', game_type: 'raffle', total_tickets: 100, ticket_price: 1, auto_play_hours: 24, next_winner_minutes: 10, is_bot_play: false, winners_count: 1, prizes: [{ rank: 1, percentage: 100 }] });
+      setNewGame({ 
+        id: '', 
+        name: '', 
+        game_type: 'raffle', 
+        total_tickets: 100, 
+        ticket_price: 1, 
+        auto_play_hours: 24, 
+        next_winner_minutes: 10, 
+        is_bot_play: false, 
+        winners_count: 1, 
+        prizes: [{ rank: 1, percentage: 100 }],
+        instructions: '',
+        photo_url: ''
+      });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Installation Failed', description: err.message });
     } finally {
@@ -136,7 +151,7 @@ export default function GamesManager() {
               CREATE NEW GAME
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-[#0b0e1b] border-white/10 text-white backdrop-blur-2xl">
+          <DialogContent className="bg-[#0b0e1b] border-white/10 text-white backdrop-blur-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter text-primary">INITIALIZE ENGINE</DialogTitle>
             </DialogHeader>
@@ -144,7 +159,7 @@ export default function GamesManager() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Engine Name</Label>
-                  <Input required placeholder="Mega Slots" value={newGame.name} onChange={e => setNewGame({...newGame, name: e.target.value})} className="bg-white/5 border-white/10" />
+                  <Input required placeholder="System Name" value={newGame.name} onChange={e => setNewGame({...newGame, name: e.target.value})} className="bg-white/5 border-white/10" />
                 </div>
                 <div className="space-y-2">
                   <Label>Architecture Type</Label>
@@ -160,9 +175,10 @@ export default function GamesManager() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Unique ID (URL param)</Label>
-                <Input required placeholder="mega-slots" value={newGame.id} onChange={e => setNewGame({...newGame, id: e.target.value})} className="bg-white/5 border-white/10" />
+                <Label>Unique ID (Slug)</Label>
+                <Input required placeholder="game-slug" value={newGame.id} onChange={e => setNewGame({...newGame, id: e.target.value})} className="bg-white/5 border-white/10" />
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Total Tickets</Label>
@@ -173,6 +189,7 @@ export default function GamesManager() {
                   <Input type="number" step="0.01" required value={newGame.ticket_price} onChange={e => setNewGame({...newGame, ticket_price: Number(e.target.value)})} className="bg-white/5 border-white/10" />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Auto-Play (Hours)</Label>
@@ -182,6 +199,21 @@ export default function GamesManager() {
                   <Label>Next Winner (Min)</Label>
                   <Input type="number" required value={newGame.next_winner_minutes} onChange={e => setNewGame({...newGame, next_winner_minutes: Number(e.target.value)})} className="bg-white/5 border-white/10" />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Live Instructions / Marketing Copy</Label>
+                <textarea 
+                  value={newGame.instructions} 
+                  onChange={e => setNewGame({...newGame, instructions: e.target.value})} 
+                  placeholder="Welcome to the game. Use your tickets to win grand prizes..."
+                  className="w-full h-20 rounded-md border border-white/10 bg-white/5 p-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Photo URL (Optional)</Label>
+                <Input placeholder="https://image-link.com/..." value={newGame.photo_url} onChange={e => setNewGame({...newGame, photo_url: e.target.value})} className="bg-white/5 border-white/10" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -252,7 +284,7 @@ export default function GamesManager() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {games.map((game) => (
-          <Card key={game.id || game._id_mongo} className="bg-card/40 backdrop-blur-xl border-white/5 overflow-hidden group hover:border-primary/30 transition-all duration-300">
+          <Card key={game.id || game._id} className="bg-card/40 backdrop-blur-xl border-white/5 overflow-hidden group hover:border-primary/30 transition-all duration-300">
             <div className="relative h-40 w-full overflow-hidden bg-black/40">
               {game.photo_url ? (
                 <img src={game.photo_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -284,14 +316,14 @@ export default function GamesManager() {
               </div>
               
               <div className="flex items-center gap-2">
-                <Link href={`/admin/games/${game.id || game._id_mongo}`} className="flex-1">
+                <Link href={`/admin/games/${game.id || game._id}`} className="flex-1">
                   <Button className="w-full font-black italic uppercase tracking-widest text-[10px] h-11 bg-white/5 border border-white/10 hover:bg-white/10 group-hover:bg-primary group-hover:text-white transition-all">
                     CONFIGURE ENGINE
                     <Settings2 className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
                 <Button 
-                  onClick={() => handleDelete(game.id || game._id_mongo, game.name)}
+                  onClick={() => handleDelete(game.id || game._id, game.name)}
                   variant="destructive" 
                   className="w-12 h-11 shrink-0 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20"
                 >

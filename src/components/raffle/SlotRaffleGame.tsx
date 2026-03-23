@@ -354,8 +354,15 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
 
     if (drawStep < (config.winners_count || 1) - 1) {
       setInterWinnerCountdown(300); // Wait 5 mins for next spin
+    } else {
+      // Game fully finalized, expire all tickets
+      fetch('/api/tickets', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId: game?.id || 'slot_raffle', action: 'expire_all' })
+      }).catch(console.error);
     }
-  }, [winners, drawStep, config, allTicketNumbers.length]);
+  }, [winners, drawStep, config, allTicketNumbers.length, game?.id]);
 
   const skipTimer = () => {
     if (systemStatus === "buying") setEventCountdown(0);
@@ -588,33 +595,40 @@ export const SlotRaffleGame = ({ game }: { game?: any }) => {
             </CardContent>
           </Card>
 
-          <Card className="bg-[#002d28] border-white/5 rounded-3xl overflow-hidden">
-             <div className="p-6">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-[#7da09d] mb-4">Live Ticket Buyers</h3>
-                <div className="space-y-3">
-                   {activeTickets.length === 0 ? (
-                     <p className="text-xs font-bold text-white/20 uppercase italic py-8 text-center">Waiting for buyers...</p>
-                   ) : (
-                     activeTickets.slice(-5).reverse().map((t, i) => (
-                       <div 
-                        key={i} 
-                        className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-white/5 transition-all group"
-                        onClick={() => openDialogIfUser(t)}
-                       >
-                          <div>
-                            <p className="text-xs font-black text-white">{t.name}</p>
-                            <p className="text-[8px] font-bold text-[#7da09d] uppercase">Qty: {t.ticketNumbers.length}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-mono tracking-widest text-[#facc15]">#{t.ticketNumbers[0].substring(0, 4)}...</span>
-                            <Download className="w-3 h-3 text-white/20 group-hover:text-[#facc15] transition-colors" />
-                          </div>
-                       </div>
-                     ))
-                   )}
-                </div>
-             </div>
-          </Card>
+          {systemStatus !== "finished" && (
+            <Card className="bg-[#002d28] border-white/5 rounded-3xl overflow-hidden text-white shadow-2xl relative group">
+               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
+               <div className="p-6 relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#7da09d] flex items-center gap-2">
+                       LIVE PARTICIPANTS
+                       {isDrawing && <span className="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(91,87,233,0.8)]" />}
+                    </h3>
+                  </div>
+                  <div className="space-y-3">
+                     {activeTickets.length === 0 ? (
+                       <p className="text-xs font-bold text-white/20 uppercase italic py-8 text-center">Awaiting initial protocols...</p>
+                     ) : (
+                       activeTickets.slice(-5).reverse().map((t, i) => (
+                         <div 
+                          key={i} 
+                          className="flex items-center justify-between bg-black/40 p-3 rounded-xl border border-white/5 cursor-pointer hover:bg-white/5 hover:border-primary/30 transition-all group"
+                          onClick={() => openDialogIfUser(t)}
+                         >
+                            <div>
+                               <p className="text-xs font-black text-white">{t.name}</p>
+                               <p className="text-[8px] font-bold text-[#7da09d] uppercase">Clusters: {t.ticketNumbers.length}</p>
+                            </div>
+                            <div className="text-right">
+                               <span className="text-[9px] font-mono tracking-widest text-primary block">[{t.ticketNumbers[0].substring(0, 4)}...]</span>
+                            </div>
+                         </div>
+                       ))
+                     )}
+                  </div>
+               </div>
+            </Card>
+          )}
         </div>
       </div>
 

@@ -55,6 +55,10 @@ const GameSchema = new mongoose.Schema({
   photo_url: {
     type: String,
     default: '',
+  },
+  instructions: {
+    type: String,
+    default: "Welcome to the game. Place your bets and wait for the system to finalize the sequence.",
   }
 }, {
   timestamps: true
